@@ -39,6 +39,12 @@ def _scm_headers(api_client, seed):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _admin_headers(api_client, seed):
+    account = seed.user("admin@inv.com", role=UserRole.ADMIN)
+    token = login(api_client, account["email"], account["password"])
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _setup(api_client, seed, catalog, threshold=10):
     """Return headers plus a supplier/warehouses/product ready to stock."""
     supplier = catalog.supplier(code="SUP-INV")
@@ -532,6 +538,91 @@ class TestInventoryReads:
 
         single = api_client.get(f"/api/v1/inventory/{row['id']}", headers=ctx["headers"])
         assert single.json()["data"]["id"] == row["id"]
+
+    @pytest.mark.db
+    def test_admin_can_get_inventory_from_any_warehouse(self, api_client, seed, catalog):
+        supplier = catalog.supplier(code="SUP-ADMIN-GET")
+        warehouse_a = catalog.warehouse(code="WH-ADMIN-A")
+        warehouse_b = catalog.warehouse(code="WH-ADMIN-B")
+        product = catalog.product(supplier_id=supplier["id"], sku="SKU-ADMIN-GET")
+        row = catalog.inventory(product["id"], warehouse_b["id"], 12)
+
+        response = api_client.get(
+            f"/api/v1/inventory/{row['id']}", headers=_admin_headers(api_client, seed)
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["warehouse_id"] == warehouse_b["id"]
+
+    @pytest.mark.db
+    def test_warehouse_manager_can_get_inventory_in_assigned_warehouse(
+        self, api_client, seed, catalog
+    ):
+        supplier = catalog.supplier(code="SUP-WM-GET")
+        warehouse = catalog.warehouse(code="WH-WM-GET")
+        product = catalog.product(supplier_id=supplier["id"], sku="SKU-WM-GET")
+        row = catalog.inventory(product["id"], warehouse["id"], 12)
+
+        response = api_client.get(
+            f"/api/v1/inventory/{row['id']}",
+            headers=_warehouse_manager_headers(api_client, seed, warehouse["id"]),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["id"] == row["id"]
+
+    @pytest.mark.db
+    def test_warehouse_manager_cannot_get_inventory_from_other_warehouse(
+        self, api_client, seed, catalog
+    ):
+        supplier = catalog.supplier(code="SUP-WM-DENY")
+        assigned = catalog.warehouse(code="WH-WM-ASSIGNED")
+        other = catalog.warehouse(code="WH-WM-OTHER")
+        product = catalog.product(supplier_id=supplier["id"], sku="SKU-WM-DENY")
+        row = catalog.inventory(product["id"], other["id"], 12)
+
+        response = api_client.get(
+            f"/api/v1/inventory/{row['id']}",
+            headers=_warehouse_manager_headers(api_client, seed, assigned["id"]),
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "FORBIDDEN"
+
+    @pytest.mark.db
+    def test_unassigned_warehouse_manager_cannot_get_inventory(
+        self, api_client, seed, catalog
+    ):
+        supplier = catalog.supplier(code="SUP-WM-UNASSIGNED")
+        warehouse = catalog.warehouse(code="WH-WM-UNASSIGNED")
+        product = catalog.product(supplier_id=supplier["id"], sku="SKU-WM-UNASSIGNED")
+        row = catalog.inventory(product["id"], warehouse["id"], 12)
+        account = seed.user("unassigned-wm@inv.com", role=UserRole.WAREHOUSE_MANAGER)
+        token = login(api_client, account["email"], account["password"])
+
+        response = api_client.get(
+            f"/api/v1/inventory/{row['id']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "FORBIDDEN"
+
+    @pytest.mark.db
+    def test_supply_chain_manager_can_get_inventory_from_any_warehouse(
+        self, api_client, seed, catalog
+    ):
+        supplier = catalog.supplier(code="SUP-SCM-GET")
+        warehouse = catalog.warehouse(code="WH-SCM-GET")
+        product = catalog.product(supplier_id=supplier["id"], sku="SKU-SCM-GET")
+        row = catalog.inventory(product["id"], warehouse["id"], 12)
+
+        response = api_client.get(
+            f"/api/v1/inventory/{row['id']}", headers=_scm_headers(api_client, seed)
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["id"] == row["id"]
 
     @pytest.mark.db
     def test_below_threshold_filter(self, api_client, seed, catalog):

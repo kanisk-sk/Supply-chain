@@ -44,7 +44,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # CORS — comma-separated list of allowed origins
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001"
+    )
 
     # Scheduled alert evaluator (Stage 4). A lightweight in-process daemon
     # polls for time-based conditions (e.g. overdue shipments) every

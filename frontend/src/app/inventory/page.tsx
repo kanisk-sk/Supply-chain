@@ -81,7 +81,7 @@ export default function InventoryPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string; details?: any } | null>(null);
 
-  const fetchProductsAndWarehouses = async () => {
+  const fetchProductsAndWarehouses = useCallback(async () => {
     try {
       const [prodRes, whRes] = await Promise.all([
         canReadProducts
@@ -96,7 +96,7 @@ export default function InventoryPage() {
     } catch (err) {
       console.error("Failed to load products/warehouses:", err);
     }
-  };
+  }, [canReadProducts, canReadWarehouses]);
 
   const loadStock = useCallback(async (page = 1, limit = 10) => {
     setStockLoading(true);
@@ -138,7 +138,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProductsAndWarehouses();
-  }, []);
+  }, [fetchProductsAndWarehouses]);
 
   useEffect(() => {
     if (activeTab === "transactions" && canReadTransactions) {

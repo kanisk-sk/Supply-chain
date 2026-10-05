@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.common.exceptions import (
     ConflictError,
+    ForbiddenError,
     InsufficientInventoryError,
     NotFoundError,
     ValidationError,
@@ -89,10 +90,13 @@ class InventoryService:
         ]
         return {"items": items, "total": result.total}
 
-    def get(self, inventory_id: int) -> dict:
+    def get(self, inventory_id: int, *, actor: User | None = None) -> dict:
         row = self.repo.get_by_id(inventory_id)
         if row is None:
             raise NotFoundError(f"Inventory record {inventory_id} not found")
+        if actor is not None and actor.role == UserRole.WAREHOUSE_MANAGER:
+            if actor.warehouse_id is None or row.warehouse_id != actor.warehouse_id:
+                raise ForbiddenError("Warehouse manager cannot access this inventory record")
         return inventory_payload(row)
 
     def list_transactions(

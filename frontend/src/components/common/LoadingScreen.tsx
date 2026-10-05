@@ -25,8 +25,11 @@ export default function LoadingScreen({ destination = "/landing", onComplete }: 
     const screen = screenRef.current;
     if (!screen) return;
 
+    let cancelled = false;
+
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const finish = () => {
+      if (cancelled) return;
       if (onComplete) {
         onComplete();
       } else {
@@ -36,7 +39,10 @@ export default function LoadingScreen({ destination = "/landing", onComplete }: 
 
     if (reducedMotion) {
       const timeoutId = window.setTimeout(finish, 450);
-      return () => window.clearTimeout(timeoutId);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timeoutId);
+      };
     }
 
     const timeline = createTimeline({
@@ -87,14 +93,17 @@ export default function LoadingScreen({ destination = "/landing", onComplete }: 
 
     timeline.init();
 
-    return () => timeline.pause();
+    return () => {
+      cancelled = true;
+      timeline.pause();
+    };
   }, [destination, onComplete, router]);
 
   return (
     <main ref={screenRef} className="loading-screen" aria-label="Loading supply chain management system">
       <div className="loading-frame">
         <p className="loading-kicker" aria-hidden="true">
-          {"SYSTEM / 01".split("").map((character, index) => (
+          {"SUPPLY CHAIN / 01".split("").map((character, index) => (
             <span className="loading-kicker-char" key={`${character}-${index}`}>
               {character === " " ? "\u00a0" : character}
             </span>
@@ -105,7 +114,7 @@ export default function LoadingScreen({ destination = "/landing", onComplete }: 
             <p className={`loading-line loading-line-${index}`} data-text={line} key={line} />
           ))}
         </div>
-        <span className="loading-index" aria-hidden="true">04—26</span>
+        <span className="loading-index" aria-hidden="true">NETWORK INITIALIZING</span>
       </div>
     </main>
   );

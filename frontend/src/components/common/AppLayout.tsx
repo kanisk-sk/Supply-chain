@@ -74,9 +74,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const isSectionActive = (section: { items: { href: string }[] }) =>
-    section.items.some((item) => isItemActive(item.href));
-
   const toggleSection = (label: string) => {
     setExpandedSections((prev) => ({ ...prev, [label]: !prev[label] }));
   };
@@ -110,16 +107,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     const SectionIcon = SECTION_ICONS[section.label] || Boxes;
     const isExpanded = expandedSections[section.label] !== false;
-    const isActive = isSectionActive(section);
+    const sectionAccent = ["Operations", "Catalog", "Insights"].includes(section.label)
+      ? "text-orange-600"
+      : "text-slate-500";
 
     if (isMobile) {
       return (
         <div className="space-y-1">
           <button
             onClick={() => toggleSection(section.label!)}
-            className={`flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-700 ${
-              isActive ? "text-indigo-600" : ""
-            }`}
+            className={`flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider ${sectionAccent} hover:text-orange-700`}
           >
             <span className="flex items-center gap-2">
               <SectionIcon className="h-4 w-4" />
@@ -139,8 +136,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2 px-3 py-1.5">
-          <SectionIcon className="h-3.5 w-3.5 text-slate-400" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{section.label}</span>
+          <SectionIcon className="h-3.5 w-3.5 text-orange-500" />
+          <span className={`text-[10px] font-semibold uppercase tracking-wider ${sectionAccent}`}>{section.label}</span>
         </div>
         {section.items.map((item) => renderNavItem(item, false))}
       </div>

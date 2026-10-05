@@ -123,9 +123,9 @@ def list_transactions(
 @router.get("/{inventory_id}", summary="Get a single inventory record")
 def get_inventory(
     inventory_id: int,
-    _user: User = Depends(require_permissions(Permission.INVENTORY_READ)),
+    actor: User = Depends(require_permissions(Permission.INVENTORY_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        InventoryService(db).get(inventory_id), message="Inventory retrieved"
+        InventoryService(db).get(inventory_id, actor=actor), message="Inventory retrieved"
     )

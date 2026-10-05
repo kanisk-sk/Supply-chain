@@ -5,13 +5,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
-import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Tilt } from "@/components/core/tilt";
+import { Lock, Mail, ArrowRight, ShieldCheck, Plane } from "lucide-react";
 
 const DEV_CREDENTIALS = [
-  { role: "ADMIN", name: "System Admin", email: "admin@example.com", pass: "Admin123!" },
-  { role: "WAREHOUSE_MANAGER", name: "Sofia Warehouse", email: "warehouse@example.com", pass: "Warehouse123!" },
-  { role: "SUPPLY_CHAIN_MANAGER", name: "Liam Supply", email: "supply@example.com", pass: "Supply123!" },
-  { role: "ANALYST", name: "Mia Analyst", email: "analyst@example.com", pass: "Analyst123!" },
+  { role: "ADMIN", email: "admin@example.com", pass: "Admin123!" },
+  { role: "WAREHOUSE_MANAGER", email: "warehouse@example.com", pass: "Warehouse123!" },
+  { role: "SUPPLY_CHAIN_MANAGER", email: "supply@example.com", pass: "Supply123!" },
+  { role: "ANALYST", email: "analyst@example.com", pass: "Analyst123!" },
 ];
 
 export default function LoginPage() {
@@ -55,27 +56,55 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-slate-50 py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
-        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900">
-          Supply Chain Platform
-        </h2>
-        <p className="mt-1 text-center text-xs text-slate-500">
-          Sign in to access your tracking & analytics workspace
-        </p>
+    <div className="relative min-h-screen w-full flex items-center justify-center lg:justify-end bg-slate-900 overflow-hidden">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/ags-logistics.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-slate-900/30 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-900/10 to-slate-900/90" />
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white px-6 py-8 shadow-sm border border-slate-200 sm:rounded-xl sm:px-10">
+      {/* Airplane Animation */}
+      <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden hidden sm:block">
+
+        
+        {/* Animated plane for regular motion */}
+        <div className="flight-path absolute top-0 left-0 text-white/80 drop-shadow-lg">
+          <Plane className="w-8 h-8 fill-white/20" />
+        </div>
+
+        {/* Static plane for reduced motion (hidden by default) */}
+        <div className="reduced-motion-plane hidden absolute top-1/4 left-1/4 text-white/50 opacity-50 drop-shadow-md">
+          <Plane className="w-8 h-8 rotate-12" />
+        </div>
+      </div>
+
+      {/* Login Panel */}
+      <div className="relative z-20 w-full max-w-md p-6 sm:p-8 lg:mr-16 xl:mr-32">
+        <Tilt rotationFactor={8} isRevese>
+          <div className="bg-white p-8 shadow-2xl border border-slate-200">
+          <div className="mb-8">
+            <div className="flex h-12 w-12 items-center justify-center bg-slate-900 text-white shadow-sm mb-4">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+              Supply Chain Platform
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Sign in to access your tracking & analytics workspace
+            </p>
+          </div>
+
           {error && (
-            <FeedbackAlert
-              type="error"
-              message={error}
-              onDismiss={() => setError(null)}
-            />
+            <div className="mb-6">
+              <FeedbackAlert
+                type="error"
+                message={error}
+                onDismiss={() => setError(null)}
+              />
+            </div>
           )}
 
           <form className="space-y-5" onSubmit={handleSubmit}>
@@ -99,7 +128,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="user@example.com"
-                  className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full border border-slate-300 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors bg-slate-50 focus:bg-white"
                 />
               </div>
             </div>
@@ -124,7 +153,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full border border-slate-300 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-colors bg-slate-50 focus:bg-white"
                 />
               </div>
             </div>
@@ -133,7 +162,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                className="flex w-full items-center justify-center gap-2 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 transition-colors"
               >
                 {loading ? "Signing in..." : "Sign in"}
                 {!loading && <ArrowRight className="h-4 w-4" />}
@@ -155,10 +184,10 @@ export default function LoginPage() {
                   key={cred.role}
                   type="button"
                   onClick={() => fillCredentials(cred.email, cred.pass)}
-                  className="flex flex-col items-start p-2 text-left rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
+                  className="flex flex-col items-start p-2 text-left border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 transition-colors"
                 >
                   <span className="text-xs font-semibold text-slate-800">
-                    {cred.name}
+                    {cred.role.replace(/_/g, " ")}
                   </span>
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider">
                     {cred.role.replace(/_/g, " ")}
@@ -167,9 +196,11 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
-        </div>
+          </div>
+        </Tilt>
       </div>
     </div>
   );
 }
+
 
