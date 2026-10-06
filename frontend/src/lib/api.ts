@@ -111,6 +111,13 @@ export async function request<T = any>(
 
 // ------------------- AUTH -------------------
 export const authApi = {
+  updateProfile: async (payload: { name: string; avatar_data?: string | null }): Promise<User> => {
+    const res = await request<ApiResponse<User>>("/auth/me", { method: "PATCH", body: JSON.stringify(payload) });
+    return res.data;
+  },
+  changePassword: async (current_password: string, new_password: string): Promise<void> => {
+    await request("/auth/me/password", { method: "POST", body: JSON.stringify({ current_password, new_password }) });
+  },
   login: async (email: string, password: string): Promise<{ access_token: string; token_type: string }> => {
     const res = await request<ApiResponse<{ access_token: string; token_type: string }>>("/auth/login", {
       method: "POST",
@@ -477,4 +484,3 @@ export const usersApi = {
     return request<ApiPagedResponse<User>>("/users", { params });
   },
 };
-

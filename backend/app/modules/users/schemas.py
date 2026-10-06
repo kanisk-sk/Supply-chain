@@ -86,6 +86,7 @@ class UserRead(BaseModel):
     email: str
     role: UserRole
     is_active: bool
+    warehouse_id: int | None = None
     created_at: datetime
     updated_at: datetime
 

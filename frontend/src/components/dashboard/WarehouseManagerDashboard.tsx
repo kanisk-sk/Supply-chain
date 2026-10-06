@@ -31,7 +31,7 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
   const [error, setError] = useState<string | null>(null);
 
   const fetchDashboardData = async () => {
-    if (warehouseId === null) {
+    if (warehouseId == null) {
       setLoading(false);
       return;
     }
@@ -78,7 +78,7 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseId]);
 
-  if (warehouseId === null) {
+  if (warehouseId == null) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
         <p className="text-sm font-semibold text-amber-800">No warehouse assigned</p>

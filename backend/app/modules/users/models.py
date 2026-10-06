@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
-from sqlalchemy import Boolean, Enum as SAEnum, ForeignKey, String
+from sqlalchemy import Boolean, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -22,6 +23,7 @@ class User(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    avatar_data: Mapped[str | None] = mapped_column(Text().with_variant(MEDIUMTEXT(), "mysql"), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         SAEnum(UserRole, name="user_role", values_callable=lambda obj: [m.value for m in obj]),
         nullable=False,

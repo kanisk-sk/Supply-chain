@@ -20,6 +20,7 @@ export type Permission =
   | "alerts:read";
 
 export interface User {
+  avatar_data?: string | null;
   id: number;
   name: string;
   email: string;
@@ -247,4 +248,3 @@ export interface ApiErrorResponse {
   success: false;
   error: ApiError;
 }
-
