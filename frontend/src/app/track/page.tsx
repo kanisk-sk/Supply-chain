@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
-import { Tilt } from "@/components/core/tilt";
 import { normalizeTrackingNumber, isValidTrackingNumberFormat } from "@/lib/tracking";
 
 // Public page: no ProtectedRoute, no AppLayout, no login required.
@@ -48,7 +47,7 @@ export default function TrackPage() {
 
       <main className="relative z-10 flex flex-1 items-center justify-center px-4 pb-12 pt-28 sm:px-8 lg:justify-end lg:px-16 xl:px-32">
         <div className="w-full max-w-lg">
-          <Tilt rotationFactor={8} isRevese>
+          <div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl">
               <Link
                 href="/"
@@ -99,7 +98,7 @@ export default function TrackPage() {
                 </button>
               </form>
             </div>
-          </Tilt>
+          </div>
         </div>
       </main>
     </div>

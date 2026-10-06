@@ -29,13 +29,13 @@ export default function DashboardPage() {
           <WarehouseManagerDashboard warehouseId={user.warehouse_id} />
         ) : user.role === "SUPPLY_CHAIN_MANAGER" ? (
           <AdminDashboard
-            title="Supply Chain Dashboard"
-            subtitle="Network-wide operational KPIs across suppliers, inventory, and shipments"
+            title="Supply chain overview"
+            subtitle="Supplier activity, stock levels and shipments across your warehouses."
           />
         ) : user.role === "ANALYST" ? (
           <AdminDashboard
-            title="Analytics Dashboard"
-            subtitle="Read-only network insights: inventory, shipment, supplier, and bottleneck analytics"
+            title="Analytics overview"
+            subtitle="Review inventory, delivery performance and supplier lead times."
           />
         ) : (
           <AdminDashboard />

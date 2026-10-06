@@ -5,6 +5,11 @@
 :root {
   --background: #f6f1e8;
   --foreground: #211f1b;
+  --font-ui: "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --radius-card: 1rem;
+  --radius-hero: 2rem;
+  --radius-pill: 9999px;
 }
 
 html {
@@ -23,7 +28,7 @@ body {
   overflow-x: hidden;
   color: #fff;
   background: #071013;
-  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .landing-section {
@@ -83,7 +88,7 @@ body {
   position: relative;
   width: min(94vw, 56rem);
   margin: 0 auto;
-  border-radius: 2.25rem;
+  border-radius: var(--radius-hero);
   background: rgba(8, 18, 23, 0.88);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -452,7 +457,7 @@ body {
   overflow-x: hidden;
   color: #fff;
   background-color: #0b1518;
-  font-family: "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-ui);
   isolation: isolate;
 }
 
@@ -468,6 +473,7 @@ body {
 }
 
 .scm-hero-title {
+  font-family: var(--font-display);
   font-size: clamp(3.2rem, 7.5vw, 7.2rem);
   font-weight: 900;
   letter-spacing: -0.065em;
@@ -484,7 +490,7 @@ body {
   background: rgba(14, 28, 33, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
-  border-radius: 1rem;
+  border-radius: var(--radius-card);
   transition: border-color 0.25s ease, transform 0.25s ease;
 }
 
@@ -541,4 +547,22 @@ body {
 
 .scm-pulse-glow {
   animation: scm-pulse-soft 6s ease-in-out infinite;
+}
+
+/* Shared visual language across marketing, sign-in and operations. */
+.scm-display {
+  font-family: var(--font-display);
+}
+
+.scm-card-radius {
+  border-radius: var(--radius-card);
+}
+
+.scm-hero-radius {
+  border-radius: var(--radius-hero);
+}
+
+.scm-button {
+  border-radius: var(--radius-pill);
+  font-weight: 600;
 }

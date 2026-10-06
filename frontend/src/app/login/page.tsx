@@ -6,7 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
-import { Tilt } from "@/components/core/tilt";
 import { Lock, Mail, ArrowLeft, ArrowRight, UserRound, Warehouse, Truck, ChartNoAxesColumnIncreasing, Plane } from "lucide-react";
 
 const DEV_CREDENTIALS = [
@@ -84,8 +83,8 @@ export default function LoginPage() {
 
       {/* Login Panel */}
       <div className="relative z-20 w-full max-w-lg p-4 sm:p-8 lg:mr-16 xl:mr-32">
-        <Tilt rotationFactor={8} isRevese>
-          <div className="bg-white rounded-[2rem] p-6 sm:p-7 shadow-2xl border border-slate-200">
+        <div>
+          <div className="bg-white scm-hero-radius p-6 sm:p-7 shadow-2xl border border-slate-200">
           <Link
             href="/"
             className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900"
@@ -100,7 +99,7 @@ export default function LoginPage() {
                 Supply Chain Platform
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold uppercase tracking-tight leading-none text-slate-900">
+            <h1 className="scm-display text-3xl sm:text-4xl font-bold uppercase tracking-tight leading-none text-slate-900">
               Sign in<span className="text-[#ef302d]" aria-hidden="true">.</span>
             </h1>
             <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
@@ -173,7 +172,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                className="scm-button flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 transition-colors"
               >
                 {loading ? "Signing in..." : "Sign in"}
                 {!loading && <ArrowRight className="h-4 w-4" />}
@@ -195,7 +194,7 @@ export default function LoginPage() {
                   key={cred.role}
                   type="button"
                   onClick={() => fillCredentials(cred.email, cred.pass)}
-                  className="flex min-h-16 items-center gap-2.5 rounded-xl p-3 text-left border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-colors"
+                  className="flex min-h-16 items-center gap-2.5 scm-card-radius p-3 text-left border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-colors"
                 >
                   <cred.icon className="h-5 w-5 shrink-0 text-black" aria-hidden="true" />
                   <span className="min-w-0 flex flex-col gap-1">
@@ -211,7 +210,7 @@ export default function LoginPage() {
             </div>
           </div>
           </div>
-        </Tilt>
+        </div>
       </div>
     </div>
   );

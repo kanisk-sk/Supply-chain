@@ -10,7 +10,7 @@ A full-stack platform for managing suppliers, products, warehouses, inventory, o
 - **Dashboards:** role-specific operational views; the analytics dashboard includes a truck-and-mountain header, live IST clock and refresh control.
 - **Sidebar:** navigation search, collapsible groups, active-page highlighting, complete hide/show controls and mobile navigation.
 - **Profile settings:** responsive personal-information and account-overview panels; persistent name and photo updates, discard controls, password visibility and password changes verified against the current password.
-- **Public tracking:** no login required; enter a tracking number such as `TRK-1A2B3C4D` to open its tracking page. The tracker shares the login page's logistics theme and tilt interaction.
+- **Public tracking:** no login required; enter a tracking number such as `TRK-1A2B3C4D` to open its tracking page. The tracker shares the login page's logistics theme, with steady form controls.
 
 ## Stack
 

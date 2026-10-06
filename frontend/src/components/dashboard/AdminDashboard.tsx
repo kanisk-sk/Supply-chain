@@ -34,8 +34,8 @@ interface AdminDashboardProps {
 // ANALYST) all hold analytics:read + alerts:read on the backend, so every
 // request below is authorized for each of them — no 403s by construction.
 export default function AdminDashboard({
-  title = "Operational Dashboard",
-  subtitle = "Real-time operational KPIs computed live from the supply chain network",
+  title = "Operations overview",
+  subtitle = "Stock levels, open orders, shipments and alerts across your warehouses.",
 }: AdminDashboardProps) {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [inventoryAnalytics, setInventoryAnalytics] = useState<InventoryAnalytics | null>(null);
@@ -87,37 +87,37 @@ export default function AdminDashboard({
 
       {error && <FeedbackAlert type="error" message={error} onDismiss={() => setError(null)} />}
 
-      {/* Top KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Operational metrics */}
+      <section aria-label="Operational metrics" className="scm-card-radius grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-px overflow-hidden border border-slate-200 bg-slate-200">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Products</span>
-            <Package className="h-4 w-4 text-indigo-500" />
+            <Package className="h-4 w-4 text-slate-500" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-3 text-3xl font-medium tabular-nums tracking-tight text-slate-900">
             {loading ? "-" : overview?.product_count ?? 0}
           </p>
           <span className="text-[11px] text-slate-500">Active catalog items</span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Total Stock</span>
-            <Boxes className="h-4 w-4 text-blue-500" />
+            <span className="text-xs font-medium text-slate-500">Total stock</span>
+            <Boxes className="h-4 w-4 text-slate-500" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-3 text-3xl font-medium tabular-nums tracking-tight text-slate-900">
             {loading ? "-" : Number(overview?.total_stock ?? 0).toLocaleString()}
           </p>
           <span className="text-[11px] text-slate-500">Units across warehouses</span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Low Stock</span>
+            <span className="text-xs font-medium text-slate-500">Low stock</span>
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </div>
           <p
-            className={`mt-2 text-2xl font-bold ${
+            className={`mt-3 text-3xl font-medium tabular-nums tracking-tight ${
               (overview?.low_stock_count ?? 0) > 0 ? "text-amber-600" : "text-slate-900"
             }`}
           >
@@ -126,35 +126,35 @@ export default function AdminDashboard({
           <span className="text-[11px] text-slate-500">Below reorder threshold</span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Active Orders</span>
-            <ShoppingCart className="h-4 w-4 text-sky-500" />
+            <span className="text-xs font-medium text-slate-500">Active orders</span>
+            <ShoppingCart className="h-4 w-4 text-slate-500" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-3 text-3xl font-medium tabular-nums tracking-tight text-slate-900">
             {loading ? "-" : overview?.active_orders_count ?? 0}
           </p>
           <span className="text-[11px] text-slate-500">Placed / Confirmed</span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">In Transit</span>
-            <Truck className="h-4 w-4 text-indigo-500" />
+            <span className="text-xs font-medium text-slate-500">In transit</span>
+            <Truck className="h-4 w-4 text-slate-500" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
+          <p className="mt-3 text-3xl font-medium tabular-nums tracking-tight text-slate-900">
             {loading ? "-" : overview?.in_transit_shipments_count ?? 0}
           </p>
           <span className="text-[11px] text-slate-500">En route shipments</span>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 bg-white p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Delayed</span>
             <Clock className="h-4 w-4 text-red-500" />
           </div>
           <p
-            className={`mt-2 text-2xl font-bold ${
+            className={`mt-3 text-3xl font-medium tabular-nums tracking-tight ${
               (overview?.delayed_shipments_count ?? 0) > 0 ? "text-red-600" : "text-slate-900"
             }`}
           >
@@ -162,16 +162,16 @@ export default function AdminDashboard({
           </p>
           <span className="text-[11px] text-slate-500">Past expected delivery</span>
         </div>
-      </div>
+      </section>
 
       {/* Active Alerts & Delivery Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-6">
         {/* Active Alerts Panel */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div className="scm-card-radius border border-slate-200 bg-white overflow-hidden flex flex-col">
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <h2 className="text-sm font-semibold text-slate-900">Unresolved Alerts</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Unresolved alerts</h2>
             </div>
             <Link
               href="/alerts"
@@ -211,10 +211,10 @@ export default function AdminDashboard({
           </div>
         </div>
 
-        {/* Shipment Performance Metrics */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+        {/* Shipment performance Metrics */}
+        <div className="scm-card-radius border border-slate-200 bg-white overflow-hidden flex flex-col">
           <div className="border-b border-slate-100 px-6 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">Shipment Performance</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Shipment performance</h2>
           </div>
           <div className="p-6 grid grid-cols-2 gap-4 flex-1">
             <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
@@ -256,9 +256,9 @@ export default function AdminDashboard({
       </div>
 
       {/* Bottlenecks Stage Timing Table */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="scm-card-radius border border-slate-200 bg-white overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">Lifecycle Bottleneck Timing</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Lifecycle bottleneck timing</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Computed duration metrics across shipment lifecycle transitions
           </p>
@@ -306,9 +306,9 @@ export default function AdminDashboard({
       {/* Warehouse Inventory Distribution & Supplier Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Inventory Distribution */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="scm-card-radius border border-slate-200 bg-white overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">Stock by Warehouse</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Stock by warehouse</h2>
             <Link
               href="/inventory"
               className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
@@ -350,9 +350,9 @@ export default function AdminDashboard({
         </div>
 
         {/* Supplier Performance */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="scm-card-radius border border-slate-200 bg-white overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">Supplier Activity</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Supplier activity</h2>
             <Link
               href="/suppliers"
               className="text-xs font-medium text-indigo-600 hover:text-indigo-700"

@@ -171,7 +171,7 @@ export default function LandingNavbar() {
 
           <Link
             href="/login"
-            className="px-3.5 py-1.5 rounded-full bg-white text-[#172126] text-xs font-bold hover:bg-slate-200 transition-colors inline-flex items-center gap-1 shadow-sm"
+            className="scm-button px-3.5 py-1.5 rounded-full bg-white text-[#172126] text-xs font-bold hover:bg-slate-200 transition-colors inline-flex items-center gap-1 shadow-sm"
           >
             <span>Sign up</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -221,7 +221,7 @@ export default function LandingNavbar() {
             <Link
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-1 rounded-full bg-white text-[#172126] font-bold text-xs"
+              className="scm-button px-3 py-1 rounded-full bg-white text-[#172126] font-bold text-xs"
             >
               Sign up
             </Link>

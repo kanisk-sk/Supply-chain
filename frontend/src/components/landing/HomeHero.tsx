@@ -14,8 +14,7 @@ export default function HomeHero() {
       {/* Top Beacon Badge inside Hero Card */}
       <div className="flex items-center justify-center pt-8 pb-3 px-6">
         <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-mono tracking-widest text-white/70 uppercase">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Autonomous Stream</span>
+          <span>Supply chain operations</span>
         </div>
       </div>
 
@@ -27,48 +26,48 @@ export default function HomeHero() {
         </p>
 
         {/* Heading */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tight text-white leading-[0.88] max-w-3xl">
+        <h1 className="scm-display text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tight text-white leading-[0.88] max-w-3xl">
           THE SUPPLY<br />
           CHAIN<span className="text-[#ef302d]">.</span>
         </h1>
 
         {/* Description */}
         <p className="mt-5 text-sm sm:text-base text-white/75 max-w-md font-light leading-relaxed">
-          Real-time tracking. Smarter decisions.<br />
-          A connected operational network across all facilities.
+          Manage stock, follow orders, and track shipments.<br />
+          Across your suppliers and warehouses.
         </p>
 
         {/* Action CTAs */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/login"
-            className="px-6 py-3 rounded-full bg-white text-[#172126] font-bold text-xs sm:text-sm hover:bg-slate-200 transition-colors inline-flex items-center gap-2 shadow-md"
+            className="scm-button px-6 py-3 rounded-full bg-white text-[#172126] font-bold text-xs sm:text-sm hover:bg-slate-200 transition-colors inline-flex items-center gap-2 shadow-md"
           >
             <span>Log in</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/track"
-            className="px-6 py-3 rounded-full border border-white/30 bg-white/5 text-white font-bold text-xs sm:text-sm hover:bg-white/10 transition-colors inline-flex items-center gap-2"
+            className="scm-button px-6 py-3 rounded-full border border-white/30 bg-white/5 text-white font-bold text-xs sm:text-sm hover:bg-white/10 transition-colors inline-flex items-center gap-2"
           >
             <Search className="w-4 h-4" />
             <span>Track My Package</span>
           </Link>
         </div>
 
-        {/* Live Metrics Ribbon */}
+        {/* Platform Capabilities */}
         <div className="mt-8 pt-6 border-t border-white/10 w-full grid grid-cols-3 gap-2 text-center font-mono">
           <div>
-            <strong className="block text-base sm:text-lg text-white font-bold">500+</strong>
-            <span className="text-[10px] sm:text-xs text-white/50 uppercase">Shipments Tracked</span>
+            <strong className="block text-base sm:text-lg text-white font-bold">Inventory</strong>
+            <span className="text-[10px] sm:text-xs text-white/50 uppercase">Stock &amp; transfers</span>
           </div>
           <div>
-            <strong className="block text-base sm:text-lg text-white font-bold">120+</strong>
-            <span className="text-[10px] sm:text-xs text-white/50 uppercase">Global Partners</span>
+            <strong className="block text-base sm:text-lg text-white font-bold">Orders</strong>
+            <span className="text-[10px] sm:text-xs text-white/50 uppercase">From order to dispatch</span>
           </div>
           <div>
-            <strong className="block text-base sm:text-lg text-emerald-400 font-bold">99.9%</strong>
-            <span className="text-[10px] sm:text-xs text-white/50 uppercase">System Uptime</span>
+            <strong className="block text-base sm:text-lg text-white font-bold">Shipments</strong>
+            <span className="text-[10px] sm:text-xs text-white/50 uppercase">Track each delivery</span>
           </div>
         </div>
       </div>

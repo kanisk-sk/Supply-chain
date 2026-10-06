@@ -8,6 +8,7 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: { sans: ["var(--font-ui)"] },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",

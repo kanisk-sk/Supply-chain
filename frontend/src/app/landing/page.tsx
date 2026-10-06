@@ -31,12 +31,12 @@ import DynamicIslandHero, {
 
 const JOURNEY_MILESTONES = [
   { step: "01", name: "Supplier", detail: "Origin & Lead Time", icon: Globe2 },
-  { step: "02", name: "Warehouse", detail: "Storage & Scoping", icon: Warehouse },
-  { step: "03", name: "Inventory", detail: "Stock & Ledgers", icon: Boxes },
-  { step: "04", name: "Order", detail: "Commercial FSM", icon: Layers },
+  { step: "02", name: "Warehouse", detail: "Warehouse stock", icon: Warehouse },
+  { step: "03", name: "Inventory", detail: "Stock movements", icon: Boxes },
+  { step: "04", name: "Order", detail: "Customer orders", icon: Layers },
   { step: "05", name: "Shipment", detail: "Carton Packing", icon: Package },
-  { step: "06", name: "Transit", detail: "Derived Delay SLAs", icon: Truck },
-  { step: "07", name: "Delivery", detail: "Signed Receipt", icon: CheckCircle2 },
+  { step: "06", name: "Transit", detail: "Delivery progress", icon: Truck },
+  { step: "07", name: "Delivery", detail: "Delivered packages", icon: CheckCircle2 },
 ];
 
 export default function LandingPage() {
@@ -140,14 +140,14 @@ export default function LandingPage() {
               {/* Left Column: Core Execution Engine */}
               <div className="space-y-6">
                 <div className="text-xs font-mono uppercase tracking-widest text-white/50 pb-2 border-b border-white/10">
-                  PHYSICAL EXECUTION ENGINE
+                  STOCK, ORDERS & DELIVERIES
                 </div>
 
                 {/* Feature 1 */}
                 <div className="scm-panel p-6 sm:p-7">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-[#ff6865] font-bold">01.01</span>
-                    <span className="scm-tag text-[9px]">ATOMIC LEDGERS</span>
+                    <span className="scm-tag text-[9px]">STOCK HISTORY</span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
                     <Warehouse className="w-5 h-5 text-[#ff6865]" />
@@ -158,9 +158,9 @@ export default function LandingPage() {
                     safety thresholds, multi-facility scoping, and automatic low-stock alarms.
                   </p>
                   <div className="flex flex-wrap gap-2 text-[11px] font-mono text-white/60">
-                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">Threshold Buffers</span>
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">Reorder Levels</span>
                     <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">Stock Adjustments</span>
-                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">Facility Scoping</span>
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">Warehouse Access</span>
                   </div>
                 </div>
 
@@ -169,7 +169,7 @@ export default function LandingPage() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-blue-300 font-bold">01.02</span>
                     <span className="scm-tag text-[9px] bg-blue-500/10 text-blue-300 border-blue-400/20">
-                      DETERMINISTIC FSM
+                      ORDER WORKFLOW
                     </span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
@@ -181,9 +181,9 @@ export default function LandingPage() {
                     strictly separate from physical transport packages:
                   </p>
                   <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs font-mono text-white/80 space-y-1">
-                    <div className="text-emerald-300">✓ Placed → Confirmed → Fulfilled</div>
-                    <div className="text-red-300">✕ Placed → Cancelled</div>
-                    <div className="text-red-300">✕ Confirmed → Cancelled</div>
+                    <div className="text-emerald-300">Placed → Confirmed → Fulfilled</div>
+                    <div className="text-red-300">Placed → Cancelled</div>
+                    <div className="text-red-300">Confirmed → Cancelled</div>
                   </div>
                 </div>
 
@@ -191,7 +191,7 @@ export default function LandingPage() {
                 <div className="scm-panel p-6 sm:p-7">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-emerald-300 font-bold">01.03</span>
-                    <span className="scm-tag scm-tag--green text-[9px]">MILESTONE SLA</span>
+                    <span className="scm-tag scm-tag--green text-[9px]">DELIVERY TIMELINE</span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
                     <Truck className="w-5 h-5 text-emerald-400" />
@@ -199,10 +199,10 @@ export default function LandingPage() {
                   </h3>
                   <p className="text-sm text-white/75 leading-relaxed font-sans mb-4">
                     Track shipments through a structured timeline (Packed → In Transit → Delivered).
-                    Delayed status is derived dynamically when the clock exceeds expected delivery time.
+                    Shipments are marked delayed after their expected delivery time.
                   </p>
                   <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-xs font-mono text-emerald-300">
-                    Delayed status is strictly derived from delivery timestamps, not manually persisted.
+                    See when a shipment has passed its expected delivery date.
                   </div>
                 </div>
               </div>
@@ -210,7 +210,7 @@ export default function LandingPage() {
               {/* Right Column: Intelligence & Boundaries */}
               <div className="space-y-6">
                 <div className="text-xs font-mono uppercase tracking-widest text-white/50 pb-2 border-b border-white/10">
-                  SECURITY BOUNDARIES & INTELLIGENCE
+                  TRACKING, REPORTS & ALERTS
                 </div>
 
                 {/* Feature 4 */}
@@ -218,7 +218,7 @@ export default function LandingPage() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-amber-300 font-bold">01.04</span>
                     <span className="scm-tag text-[9px] bg-amber-500/10 text-amber-300 border-amber-400/20">
-                      PUBLIC GATEWAY
+                      CUSTOMER TRACKING
                     </span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
@@ -233,7 +233,7 @@ export default function LandingPage() {
                     <span className="text-red-300">✕ No internal DB IDs</span>
                     <span className="text-red-300">✕ No supplier data</span>
                     <span className="text-red-300">✕ No stock quantities</span>
-                    <span className="text-red-300">✕ No audit telemetry</span>
+                    <span className="text-red-300">✕ No internal change logs</span>
                   </div>
                   <Link
                     href="/track"
@@ -248,15 +248,15 @@ export default function LandingPage() {
                 <div className="scm-panel p-6 sm:p-7">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-purple-300 font-bold">01.05</span>
-                    <span className="scm-tag text-[9px]">REAL-TIME SQL</span>
+                    <span className="scm-tag text-[9px]">CURRENT DATA</span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
                     <LineChart className="w-5 h-5 text-purple-400" />
                     Live Analytics
                   </h3>
                   <p className="text-sm text-white/75 leading-relaxed font-sans mb-4">
-                    Turn operational data into live supply-chain insights. Computed in real time
-                    directly from operational rows without stale overnight batch pipelines:
+                    Review delivery performance, supplier lead times and inventory levels using
+                    current operational records:
                   </p>
                   <div className="flex flex-wrap gap-2 text-[11px] font-mono text-white/60">
                     <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">On-Time Rates</span>
@@ -270,20 +270,19 @@ export default function LandingPage() {
                 <div className="scm-panel p-6 sm:p-7">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono text-xs text-[#ef302d] font-bold">01.06</span>
-                    <span className="scm-tag scm-tag--red text-[9px]">AUTOMATIC INCIDENTS</span>
+                    <span className="scm-tag scm-tag--red text-[9px]">STOCK & DELIVERY ALERTS</span>
                   </div>
                   <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-2 flex items-center gap-2">
                     <Flame className="w-5 h-5 text-[#ef302d]" />
-                    Derived Alerts Engine
+                    Stock & Delivery Alerts
                   </h3>
                   <p className="text-sm text-white/75 leading-relaxed font-sans mb-4">
-                    Automatically surface critical conditions such as low stock balances and overdue
-                    shipments. In-process deduplication prevents alert noise, and alerts auto-resolve
-                    when physical conditions clear.
+                    Find low stock and overdue shipments in one place. Alerts close automatically
+                    when stock is replenished or a shipment is delivered.
                   </p>
                   <div className="flex items-center justify-between text-xs font-mono text-white/60 pt-2 border-t border-white/10">
-                    <span>Deduplication: Key-Based</span>
-                    <span className="text-emerald-400">Auto-Resolves on Restock/Delivery</span>
+                    <span>Repeated alerts are grouped</span>
+                    <span className="text-emerald-400">Closes when resolved</span>
                   </div>
                 </div>
               </div>
@@ -329,7 +328,7 @@ export default function LandingPage() {
                 </div>
                 <div className="pt-4 border-t border-white/10 text-xs font-mono text-white/60 flex items-center justify-between">
                   <span>Scope: Designated Facility Only</span>
-                  <span className="text-emerald-400">Strict DB Isolation</span>
+                  <span className="text-emerald-400">Warehouse-Level Access</span>
                 </div>
               </div>
 
@@ -338,7 +337,7 @@ export default function LandingPage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="scm-tag text-[10px] bg-blue-500/10 text-blue-300 border-blue-400/20">
-                      NETWORK RADAR
+                      NETWORK OVERVIEW
                     </span>
                     <span className="text-xs font-mono text-blue-300 uppercase">Supply Chain Managers</span>
                   </div>
@@ -361,7 +360,7 @@ export default function LandingPage() {
               <div className="scm-panel p-8 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="scm-tag scm-tag--green text-[10px]">READ-ONLY INTELLIGENCE</span>
+                    <span className="scm-tag scm-tag--green text-[10px]">READ-ONLY REPORTS</span>
                     <span className="text-xs font-mono text-emerald-300 uppercase">Analysts</span>
                   </div>
                   <h3 className="text-2xl font-bold uppercase tracking-tight text-white mb-3">
@@ -374,8 +373,8 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div className="pt-4 border-t border-white/10 text-xs font-mono text-white/60 flex items-center justify-between">
-                  <span>Scope: Enterprise Telemetry</span>
-                  <span className="text-emerald-400">Zero Mutation Rights</span>
+                  <span>Scope: All Facilities</span>
+                  <span className="text-emerald-400">Read-Only Access</span>
                 </div>
               </div>
 
@@ -384,7 +383,7 @@ export default function LandingPage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="scm-tag text-[10px] bg-amber-500/10 text-amber-300 border-amber-400/20">
-                      SYSTEM GOVERNANCE
+                      ACCOUNT MANAGEMENT
                     </span>
                     <span className="text-xs font-mono text-amber-300 uppercase">Administrators</span>
                   </div>
@@ -392,14 +391,13 @@ export default function LandingPage() {
                     System Administration
                   </h3>
                   <p className="text-sm text-white/75 leading-relaxed font-sans mb-6">
-                    Complete administrative governance over user accounts, role-based access control (RBAC),
-                    facility scoping assignments, master catalog configurations, scheduler daemons, and
-                    immutable audit trails.
+                    Manage user accounts and permissions, maintain product and warehouse records,
+                    and review changes in the audit history.
                   </p>
                 </div>
                 <div className="pt-4 border-t border-white/10 text-xs font-mono text-white/60 flex items-center justify-between">
-                  <span>Scope: Root Governance</span>
-                  <span className="text-amber-300">Cryptographic RBAC</span>
+                  <span>Scope: User & System Settings</span>
+                  <span className="text-amber-300">Role-Based Access</span>
                 </div>
               </div>
             </div>
@@ -408,9 +406,9 @@ export default function LandingPage() {
             <div className="mt-10 p-5 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-white/70">
               <span className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                Role-Based Access Control (RBAC) enforced on every API route
+                Access based on your team’s role
               </span>
-              <span>Bcrypt Passwords · HS256 JWT Tokens · Scoped Database Queries</span>
+              <span>Separate access for managers, analysts and administrators</span>
             </div>
           </div>
         </section>
@@ -488,11 +486,11 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Built Around Real Operations */}
+              {/* Built Around Daily Work */}
               <div className="scm-panel p-8">
-                <span className="font-mono text-xs text-emerald-400 font-bold block mb-2">SOURCE OF TRUTH</span>
+                <span className="font-mono text-xs text-emerald-400 font-bold block mb-2">DAILY OPERATIONS</span>
                 <h3 className="text-xl font-bold uppercase tracking-tight text-white mb-3">
-                  Built Around Real Operations
+                  Built Around Daily Work
                 </h3>
                 <p className="text-sm text-white/75 leading-relaxed font-sans mb-4">
                   The system is based around operational source-of-truth data rather than duplicated
@@ -527,26 +525,26 @@ export default function LandingPage() {
         <section className="py-24 border-t border-white/10 bg-[#060e11]/80">
           <div className="scm-subpage-container flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
             <div>
-              <span className="scm-tag text-[10px] mb-3">SYSTEM TERMINAL</span>
+              <span className="scm-tag text-[10px] mb-3">GET STARTED</span>
               <h2 className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-white">
-                Ready to Interact with SCM?
+                Open your workspace
               </h2>
               <p className="text-sm text-white/70 mt-2 max-w-xl font-sans">
-                Access your designated operational dashboard or look up in-flight freight using your tracking code.
+                Sign in to manage stock, orders and shipments, or track a package without an account.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
               <Link
                 href="/track"
-                className="px-6 py-3 rounded-full border border-white/30 bg-white/5 text-white font-bold text-xs hover:bg-white/10 transition-colors inline-flex items-center gap-2"
+                className="scm-button px-6 py-3 rounded-full border border-white/30 bg-white/5 text-white font-bold text-xs hover:bg-white/10 transition-colors inline-flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
                 <span>Track a Package</span>
               </Link>
               <Link
                 href="/login"
-                className="px-6 py-3 rounded-full bg-white text-[#172126] font-bold text-xs hover:bg-slate-200 transition-colors inline-flex items-center gap-2 shadow-lg"
+                className="scm-button px-6 py-3 rounded-full bg-white text-[#172126] font-bold text-xs hover:bg-slate-200 transition-colors inline-flex items-center gap-2 shadow-lg"
               >
                 <span>Log In to Portal</span>
                 <ArrowRight className="w-4 h-4" />
@@ -556,10 +554,9 @@ export default function LandingPage() {
 
           <div className="scm-subpage-container mt-12 pt-6 border-t border-white/10 flex items-center justify-between text-xs font-mono text-white/50">
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              SCM Engine Online · MySQL InnoDB · FastAPI v0.4.0
+              Supply Chain Tracking & Analytics
             </span>
-            <span>99.9% Production Uptime</span>
+            <span>Inventory · Orders · Shipments</span>
           </div>
         </section>
 
