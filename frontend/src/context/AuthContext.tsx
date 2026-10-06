@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await authApi.me();
       setUser(currentUser);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       removeStoredToken();
       setToken(null);
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     removeStoredToken();
     setToken(null);
     setUser(null);
-    router.push("/login");
+    router.push("/landing");
   };
 
   const hasPermission = (...permissions: Permission[]): boolean => {

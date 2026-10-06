@@ -33,7 +33,7 @@ export const NAVIGATION_CONFIG: NavSection[] = [
     items: [
       {
         name: "Dashboard",
-        href: "/",
+        href: "/dashboard",
         icon: LayoutDashboard,
         // Visible to every authenticated role; the dashboard itself is role-specific.
       },

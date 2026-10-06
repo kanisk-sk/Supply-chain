@@ -21,8 +21,8 @@ export default function ProtectedRoute({
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && pathname !== "/login") {
-      router.push("/login");
+    if (!isLoading && !isAuthenticated && pathname !== "/login" && pathname !== "/landing") {
+      router.push("/landing");
     }
   }, [isLoading, isAuthenticated, router, pathname]);
 
@@ -50,7 +50,7 @@ export default function ProtectedRoute({
             Your role ({user?.role}) does not have the required permissions to view this resource.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             Back to Dashboard
@@ -69,7 +69,7 @@ export default function ProtectedRoute({
             This section is restricted to: {requiredRoles.join(", ")}.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             Back to Dashboard

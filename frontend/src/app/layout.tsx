@@ -1,7 +1,6 @@
 import "./globals.css";
 import { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
-import LoadingGate from "@/components/common/LoadingGate";
 
 export const metadata = {
   title: "Supply Chain Tracking & Analytics",
@@ -13,7 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className="antialiased font-sans">
         <AuthProvider>
-          <LoadingGate>{children}</LoadingGate>
+          {children}
         </AuthProvider>
       </body>
     </html>

@@ -149,7 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col fixed inset-y-0 z-30 border-r border-slate-200 bg-white">
         <div className="flex h-16 items-center px-6 border-b border-slate-100">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
               SC
             </div>
@@ -204,7 +204,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 inset-x-0 z-40 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded bg-indigo-600 text-white font-bold text-xs">
             SC
           </div>
