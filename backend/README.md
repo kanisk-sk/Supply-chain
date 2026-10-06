@@ -80,8 +80,16 @@ They use `TEST_DATABASE_URL` and never touch the dev database.
 - `docs/ARCHITECTURE.md` — request lifecycle, layers, transactions, state machines
 - `docs/API_CONTRACT.md` — API surface; implemented endpoints are marked **[LIVE]**
 
-## Non-goals
+## Self-service profiles
 
-No external integrations, no ML, and no frontend. The layers are designed so
-those attach without architectural rewrites (orders/shipments workflows, the
-alert scheduler, and analytics are already shipped in Stages 3-4).
+All authenticated users can update their own profile through `PATCH /api/v1/auth/me` (name and optional `avatar_data`) and change their password through `POST /api/v1/auth/me/password` (current and new password). These endpoints do not accept another user's ID, email, role or warehouse assignment. Password changes verify the current password, and profile/password changes append audit records without storing passwords in the audit payload.
+
+Photos are persisted as bounded JPEG data URLs in the nullable `users.avatar_data` column introduced by migration `a60206f1c001`. Run `alembic upgrade head` before starting the updated backend. The frontend accepts JPEG, PNG and WebP files up to 5 MB and resizes them to a 256px square JPEG before saving.
+
+`GET /api/v1/auth/me` includes the account's photo and `warehouse_id`, which the role-specific frontend dashboard uses for warehouse scoping.
+
+## Frontend and project overview
+
+The Next.js frontend lives in `../frontend`. See the [project README](../README.md) for full-stack setup, development accounts, routes and frontend checks.
+
+External integrations and ML are outside the current implementation.

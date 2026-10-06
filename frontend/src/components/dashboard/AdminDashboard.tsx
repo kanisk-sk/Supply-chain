@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import DashboardHero from "@/components/dashboard/DashboardHero";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { analyticsApi, alertsApi } from "@/lib/api";
@@ -82,20 +83,7 @@ export default function AdminDashboard({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">{subtitle}</p>
-        </div>
-        <button
-          onClick={fetchDashboardData}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-50"
-        >
-          <TrendingUp className="h-4 w-4 text-slate-500" />
-          Refresh Analytics
-        </button>
-      </div>
+      <DashboardHero title={title} subtitle={subtitle} loading={loading} onRefresh={fetchDashboardData} />
 
       {error && <FeedbackAlert type="error" message={error} onDismiss={() => setError(null)} />}
 
