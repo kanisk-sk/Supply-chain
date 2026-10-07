@@ -15,6 +15,9 @@ import {
   PanelLeftOpen,
   Search,
 } from "lucide-react";
+import dashboardStyles from "@/components/dashboard/dashboard.module.css";
+import workspaceStyles from "./workspace.module.css";
+import { usesWorkspaceDesign } from "@/lib/workspace-theme";
 import { NAVIGATION_CONFIG, getVisibleNavItems } from "@/config/navigation";
 
 interface AppLayoutProps {
@@ -23,6 +26,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
+  const workspaceDesign = usesWorkspaceDesign(pathname);
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navigationSearch, setNavigationSearch] = useState("");
@@ -133,7 +137,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex">
+    <div data-workspace-design={workspaceDesign ? "true" : undefined} className={`min-h-screen bg-slate-50 text-slate-900 flex ${workspaceDesign ? `${dashboardStyles.workspace} ${workspaceStyles.pages}` : ""}`}>
       {/* Desktop Sidebar */}
       <aside className={`hidden ${sidebarCollapsed ? "" : "md:flex"} md:w-64 md:flex-col fixed inset-y-0 z-30 border-r border-slate-200 bg-[#f4f3f0]`}>
         <div className="flex min-h-20 shrink-0 items-center justify-between gap-2 border-b border-slate-200/70 px-4">

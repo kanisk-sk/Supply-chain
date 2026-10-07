@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { alertsApi, inventoryApi, ordersApi, shipmentsApi, warehousesApi } from "@/lib/api";
 import { Alert, InventoryItem, InventoryTransaction, Shipment, Warehouse } from "@/types/api";
-import { Boxes, AlertTriangle, Truck, ShoppingCart, ArrowRight, Warehouse as WarehouseIcon, History, RefreshCw } from "lucide-react";
+import { Boxes, AlertTriangle, Truck, ShoppingCart } from "lucide-react";
 import Link from "next/link";
-import StatusBadge from "@/components/common/StatusBadge";
-import FeedbackAlert from "@/components/common/FeedbackAlert";
+import DashboardHero from "./DashboardHero";
+import styles from "./dashboard.module.css";
+import { Panel, Metric, DataState, DashboardError, Signal, DashboardExamples } from "./DashboardPrimitives";
 
 interface WarehouseManagerDashboardProps {
   warehouseId: number | null;
@@ -79,293 +80,48 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
   }, [warehouseId]);
 
   if (warehouseId == null) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
-        <p className="text-sm font-semibold text-amber-800">No warehouse assigned</p>
-        <p className="mt-1 text-xs text-amber-700">
-          Your account is not assigned to a warehouse yet. Contact an administrator.
-        </p>
-      </div>
-    );
+    return <section className={styles.panel}><div className={styles.panelHeader}><h1>No warehouse assigned</h1></div><div className={styles.empty}><AlertTriangle size={16} />Your account is not assigned to a warehouse yet. Contact an administrator.</div></section>;
   }
-
   const totalUnits = warehouseInventory.reduce((sum, item) => sum + Number(item.quantity), 0);
-
+  const value = (number: number) => loading ? "—" : number.toLocaleString();
+  const timestamp = (date: string) => new Date(date).toISOString().slice(0,16).replace("T", " ");
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <WarehouseIcon className="h-5 w-5 text-indigo-600" />
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Warehouse Dashboard
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            {warehouse ? `${warehouse.name} (${warehouse.code})` : `Warehouse #${warehouseId}`} —
-            Operational metrics and inventory status
-          </p>
-        </div>
-        <button
-          onClick={fetchDashboardData}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className="h-4 w-4 text-slate-500" />
-          Refresh
-        </button>
+    <div className={styles.dashboard} aria-busy={loading}>
+      <DashboardHero title={warehouse ? `${warehouse.name} / ${warehouse.code}` : "Warehouse operations"} subtitle="Operational metrics and inventory status for your warehouse." loading={loading} onRefresh={fetchDashboardData} />
+      {error && <DashboardError message={error} retry={fetchDashboardData} dismiss={() => setError(null)} />}
+      <section aria-label="Warehouse metrics" className={styles.metrics}>
+        <Metric label="Warehouse stock" value={value(totalUnits)} note="Units in loaded inventory" icon={<Boxes size={13} />} />
+        <Metric label="Low stock" value={value(lowStockItems.length)} note="Items below threshold" tone="warning" icon={<AlertTriangle size={13} />} />
+        <Metric label="Orders" value={value(orderCount)} note="Touching this warehouse" icon={<ShoppingCart size={13} />} />
+        <Metric label="In transit" value={value(inTransitCount)} note="From this warehouse" icon={<Truck size={13} />} />
+        <Metric label="Delayed" value={value(delayedCount)} note="Shipments need attention" tone="danger" />
+        <Metric label="Loaded SKUs" value={value(warehouseInventory.length)} note="Current inventory sample" />
+      </section>
+      <div className={styles.split}>
+        <Panel title="Warehouse alerts" href="/alerts" action="All alerts">
+          <DataState loading={loading} empty={!activeAlerts.length && "No active alerts. All systems normal."}>
+            <table className={styles.table}><thead><tr><th>Severity</th><th>Exception</th><th>Created / UTC</th></tr></thead><tbody>{activeAlerts.map(alert => <tr key={alert.id}><td><Signal tone={alert.severity === "CRITICAL" ? "danger" : alert.severity === "WARNING" ? "warning" : undefined}>{alert.severity}</Signal></td><td>{alert.message}</td><td><time dateTime={alert.created_at}>{timestamp(alert.created_at)}</time></td></tr>)}</tbody></table>
+          </DataState>
+        </Panel>
+        <Panel title="Reorder queue" href="/inventory" action="Inventory">
+          <DataState loading={loading} empty={!lowStockItems.length && "All products are above their reorder threshold."}>
+            <table className={styles.table}><thead><tr><th>Product / SKU</th><th className={styles.number}>Available</th><th className={styles.number}>Threshold</th></tr></thead><tbody>{lowStockItems.slice(0,10).map(item => <tr key={item.id}><td>{item.product?.name || `Product #${item.product_id}`}<div className={styles.mono}>{item.product?.sku || "N/A"}</div></td><td className={`${styles.number} ${styles.warning}`}>{Number(item.quantity).toLocaleString()} {item.product?.unit || "units"}</td><td className={styles.number}>{Number(item.product?.reorder_threshold ?? 0).toLocaleString()}</td></tr>)}</tbody></table>
+          </DataState>
+        </Panel>
       </div>
-
-      {error && <FeedbackAlert type="error" message={error} onDismiss={() => setError(null)} />}
-
-      {/* Top KPI Cards - Warehouse Scoped */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Warehouse Stock</span>
-            <Boxes className="h-4 w-4 text-blue-500" />
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
-            {loading ? "-" : totalUnits.toLocaleString()}
-          </p>
-          <span className="text-[11px] text-slate-500">Units in this warehouse</span>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Low Stock Items</span>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </div>
-          <p className={`mt-2 text-2xl font-bold ${lowStockItems.length > 0 ? "text-amber-600" : "text-slate-900"}`}>
-            {loading ? "-" : lowStockItems.length}
-          </p>
-          <span className="text-[11px] text-slate-500">Below reorder threshold</span>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Relevant Orders</span>
-            <ShoppingCart className="h-4 w-4 text-sky-500" />
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
-            {loading ? "-" : orderCount}
-          </p>
-          <span className="text-[11px] text-slate-500">Touching this warehouse</span>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">In-Transit Shipments</span>
-            <Truck className="h-4 w-4 text-indigo-500" />
-          </div>
-          <p className="mt-2 text-2xl font-bold text-slate-900">
-            {loading ? "-" : inTransitCount}
-          </p>
-          <span className="text-[11px] text-slate-500">From this warehouse</span>
-        </div>
-      </div>
-
-      {/* Active Alerts & Low Stock */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Active Alerts Panel */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <h2 className="text-sm font-semibold text-slate-900">Warehouse Alerts</h2>
-            </div>
-            <Link
-              href="/alerts"
-              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <div className="flex-1 p-4">
-            {activeAlerts.length === 0 ? (
-              <div className="flex h-36 flex-col items-center justify-center text-center">
-                <p className="text-xs font-medium text-emerald-600">
-                  All systems normal. No active alerts.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activeAlerts.map((alert) => (
-                  <div key={alert.id} className="flex items-start justify-between rounded-lg border border-slate-100 bg-slate-50 p-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge alertType={alert.type} size="sm" />
-                        <StatusBadge severity={alert.severity} size="sm" />
-                      </div>
-                      <p className="text-xs text-slate-800 font-medium">{alert.message}</p>
-                      <span className="text-[10px] text-slate-400">
-                        Created {new Date(alert.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Low Stock Focus */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Low Stock Items (Warehouse #{warehouseId})
-            </h2>
-            <Link
-              href="/inventory"
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              View all inventory →
-            </Link>
-          </div>
-          <div className="p-6">
-            {lowStockItems.length === 0 ? (
-              <p className="text-xs text-emerald-600 text-center py-6">
-                No low stock items. All products above reorder threshold.
-              </p>
-            ) : (
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {lowStockItems.slice(0, 10).map((item) => {
-                  const prod = item.product;
-                  const threshold = Number(prod?.reorder_threshold ?? 0);
-                  const qty = Number(item.quantity);
-                  return (
-                    <div key={item.id} className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50 p-3">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-900">{prod?.name || `Product #${item.product_id}`}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">SKU: {prod?.sku || "N/A"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-amber-600">{qty.toLocaleString()} {prod?.unit || "units"}</p>
-                        <p className="text-[10px] text-slate-500">Threshold: {threshold.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Shipments & Stock Movements */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Shipments */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <div className="flex items-center gap-2">
-              <Truck className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-sm font-semibold text-slate-900">Recent Shipments</h2>
-            </div>
-            <Link
-              href="/shipments"
-              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <div className="flex-1 p-4">
-            {delayedCount > 0 && (
-              <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                {delayedCount} delayed shipment{delayedCount === 1 ? "" : "s"} need attention.
-              </p>
-            )}
-            {recentShipments.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">No shipments found.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentShipments.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 p-3">
-                    <div>
-                      <Link
-                        href={`/shipments/${s.id}`}
-                        className="text-xs font-mono font-semibold text-indigo-600 hover:underline"
-                      >
-                        {s.shipment_number}
-                      </Link>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Order #{s.order_id} · {new Date(s.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={s.status} size="sm" />
-                      {s.is_delayed && <StatusBadge isDelayed={true} size="sm" />}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Stock Movements */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-            <div className="flex items-center gap-2">
-              <History className="h-5 w-5 text-slate-500" />
-              <h2 className="text-sm font-semibold text-slate-900">Recent Stock Movements</h2>
-            </div>
-            <Link href="/inventory" className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
-              View inventory →
-            </Link>
-          </div>
-          <div className="p-4">
-            {recentTransactions.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">No recent movements.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentTransactions.map((tx) => {
-                  const num = Number(tx.delta);
-                  return (
-                    <div key={tx.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div>
-                        <p className="text-xs font-medium text-slate-800">
-                          {tx.product?.name || `Product #${tx.product_id}`}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {tx.type.replace(/_/g, " ")} · {new Date(tx.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                      <span className={`font-mono text-xs font-semibold ${num >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                        {num > 0 ? `+${num}` : num}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Operational Metrics */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">Warehouse Operational Metrics</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Key indicators for warehouse #{warehouseId} operations</p>
-        </div>
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
-            <span className="text-xs text-slate-500">Total SKUs</span>
-            <p className="mt-1 text-xl font-bold text-slate-900">{warehouseInventory.length}</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
-            <span className="text-xs text-slate-500">Low Stock Count</span>
-            <p className="mt-1 text-xl font-bold text-amber-600">{lowStockItems.length}</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-4 border border-slate-100">
-            <span className="text-xs text-slate-500">Total Units</span>
-            <p className="mt-1 text-xl font-bold text-slate-900">
-              {totalUnits.toLocaleString()}
-            </p>
-          </div>
-        </div>
-      </div>
+      <Panel title="Recent shipments" href="/shipments" action="All shipments">
+        {delayedCount > 0 && <div className={`${styles.empty} ${styles.danger}`}><AlertTriangle size={14} />{delayedCount} delayed shipment{delayedCount === 1 ? "" : "s"} need attention.</div>}
+        <DataState loading={loading} empty={!recentShipments.length && "No shipments found for this warehouse."}>
+          <table className={styles.table}><thead><tr><th>Shipment ID</th><th>Order</th><th>Status</th><th>Delivery / UTC</th><th>Created / UTC</th></tr></thead><tbody>{recentShipments.map(shipment => <tr key={shipment.id}><td><Link href={`/shipments/${shipment.id}`} className={styles.mono}>{shipment.shipment_number}</Link></td><td><code>#{shipment.order_id}</code></td><td><Signal tone={shipment.is_delayed ? "danger" : shipment.status === "DELIVERED" ? "success" : undefined}>{shipment.is_delayed ? "DELAYED" : shipment.status}</Signal></td><td>{shipment.expected_delivery_at ? <time dateTime={shipment.expected_delivery_at}>{timestamp(shipment.expected_delivery_at)}</time> : "Not scheduled"}</td><td><time dateTime={shipment.created_at}>{timestamp(shipment.created_at)}</time></td></tr>)}</tbody></table>
+        </DataState>
+      </Panel>
+      <Panel title="Recent stock movements" href="/inventory" action="Inventory">
+        <DataState loading={loading} empty={!recentTransactions.length && "No recent stock movements."}>
+          <table className={styles.table}><thead><tr><th>Product</th><th>Movement</th><th>Created / UTC</th><th className={styles.number}>Unit change</th></tr></thead><tbody>{recentTransactions.map(tx => <tr key={tx.id}><td>{tx.product?.name || `Product #${tx.product_id}`}</td><td><Signal>{tx.type.replace(/_/g," ")}</Signal></td><td><time dateTime={tx.created_at}>{timestamp(tx.created_at)}</time></td><td className={styles.number}>{Number(tx.delta) > 0 ? "+" : ""}{Number(tx.delta).toLocaleString()}</td></tr>)}</tbody></table>
+        </DataState>
+      </Panel>
+      {!loading && !recentShipments.length && <DashboardExamples />}
+      <footer className={styles.footer}><span>Warehouse <span className={styles.mono}>#{warehouseId}</span> / Operations workspace</span><span className={styles.mono}>{loading ? "SYNCING" : error ? "SYNC INCOMPLETE" : "SYNC COMPLETE"}</span></footer>
     </div>
   );
 }

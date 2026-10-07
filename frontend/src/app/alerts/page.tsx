@@ -3,13 +3,15 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
+import WorkspacePageHeader from "@/components/common/WorkspacePageHeader";
+import workspaceStyles from "@/components/common/workspace.module.css";
 import DataTable, { Column } from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { alertsApi } from "@/lib/api";
 import { Alert, PaginationMeta, AlertType, AlertSeverity } from "@/types/api";
 import Link from "next/link";
-import { AlertTriangle, Filter, Info, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Filter, CheckCircle2 } from "lucide-react";
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -137,27 +139,12 @@ export default function AlertsPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                System Alerts & Exceptions
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Derived conditions evaluated continuously across inventory levels and shipment deliveries
-              </p>
-            </div>
-          </div>
+          <WorkspacePageHeader title="Alerts" section="Insights" description="Stock and delivery conditions that need attention." />
 
-          {/* Informational Alert Box */}
-          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-xs text-blue-800">
-            <Info className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-blue-900">Automated Derived Conditions</p>
-              <p className="mt-0.5 text-blue-700">
-                Alerts are automatically triggered when operational thresholds are breached (e.g. LOW_STOCK below reorder point, SHIPMENT_OVERDUE past expected delivery) and automatically resolve once the condition clears. Clients cannot manually mutate alert states.
-              </p>
-            </div>
-          </div>
+          <details className={workspaceStyles.help}>
+            <summary>How automatic alerts work</summary>
+            <p>Alerts appear when stock falls below a reorder point or a shipment passes its expected delivery time. They resolve automatically when the condition clears. Alert states cannot be edited manually.</p>
+          </details>
 
           {feedback && (
             <FeedbackAlert
@@ -168,7 +155,7 @@ export default function AlertsPage() {
           )}
 
           {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          <div className={workspaceStyles.filters}>
             <div className="flex items-center gap-1 text-slate-400">
               <Filter className="h-4 w-4" />
               <span className="text-xs font-medium text-slate-700">Filters:</span>

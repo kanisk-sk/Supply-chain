@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
+import WorkspacePageHeader from "@/components/common/WorkspacePageHeader";
 import DataTable, { Column } from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -147,15 +148,7 @@ export default function WarehousesPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Warehouses & Hubs
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Manage storage facilities, logistics hubs, and physical distribution centers
-              </p>
-            </div>
+          <WorkspacePageHeader title="Warehouses" section="Catalog" description="Storage facilities and distribution hubs.">
             {canWriteWarehouses && (
               <button
                 onClick={handleOpenCreate}
@@ -164,7 +157,7 @@ export default function WarehousesPage() {
                 <Plus className="h-4 w-4" /> Add Warehouse
               </button>
             )}
-          </div>
+          </WorkspacePageHeader>
 
           {feedback && (
             <FeedbackAlert

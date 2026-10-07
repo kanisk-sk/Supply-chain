@@ -37,7 +37,7 @@ export default function DataTable<T extends { id?: number | string }>({
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
             <tr>
               {columns.map((col) => (
-                <th key={col.key} scope="col" className={`px-4 py-3 sm:px-6 ${col.className || ""}`}>
+                <th key={col.key} data-column={col.key} scope="col" className={`px-4 py-3 sm:px-6 ${col.className || ""}`}>
                   {col.header}
                 </th>
               ))}
@@ -48,7 +48,7 @@ export default function DataTable<T extends { id?: number | string }>({
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={`skeleton-${index}`} className="animate-pulse">
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-4 sm:px-6">
+                    <td key={col.key} data-column={col.key} className="px-4 py-4 sm:px-6">
                       <div className="h-4 w-3/4 rounded bg-slate-200" />
                     </td>
                   ))}
@@ -70,7 +70,7 @@ export default function DataTable<T extends { id?: number | string }>({
                   }`}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className={`px-4 py-3.5 sm:px-6 ${col.className || ""}`}>
+                    <td key={col.key} data-column={col.key} className={`px-4 py-3.5 sm:px-6 ${col.className || ""}`}>
                       {col.render ? col.render(item) : (item as any)[col.key] ?? "-"}
                     </td>
                   ))}

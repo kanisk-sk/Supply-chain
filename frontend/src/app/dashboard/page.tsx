@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import styles from "@/components/dashboard/dashboard.module.css";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
@@ -20,11 +21,9 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <AppLayout>
+      <div className={styles.workspace} data-dashboard-workspace><AppLayout>
         {isLoading || !user ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          </div>
+          <div className={styles.loading} role="status">Loading your operations workspace…<div className={styles.skeleton} /><div className={styles.skeleton} /></div>
         ) : user.role === "WAREHOUSE_MANAGER" ? (
           <WarehouseManagerDashboard warehouseId={user.warehouse_id} />
         ) : user.role === "SUPPLY_CHAIN_MANAGER" ? (
@@ -40,7 +39,7 @@ export default function DashboardPage() {
         ) : (
           <AdminDashboard />
         )}
-      </AppLayout>
+      </AppLayout></div>
     </ProtectedRoute>
   );
 }

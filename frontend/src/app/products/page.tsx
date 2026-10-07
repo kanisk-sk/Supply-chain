@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
+import WorkspacePageHeader from "@/components/common/WorkspacePageHeader";
+import workspaceStyles from "@/components/common/workspace.module.css";
 import DataTable, { Column } from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -211,15 +213,7 @@ export default function ProductsPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Products Catalog
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Maintain product definitions, units of measure, and automatic reorder thresholds
-              </p>
-            </div>
+          <WorkspacePageHeader title="Products" section="Catalog" description="Product details, units, and reorder levels.">
             {canWriteProducts && (
               <button
                 onClick={handleOpenCreate}
@@ -228,7 +222,7 @@ export default function ProductsPage() {
                 <Plus className="h-4 w-4" /> Add Product
               </button>
             )}
-          </div>
+          </WorkspacePageHeader>
 
           {feedback && (
             <FeedbackAlert
@@ -240,7 +234,7 @@ export default function ProductsPage() {
           )}
 
           {/* Filter Bar */}
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          <div className={workspaceStyles.filters}>
             <div className="flex items-center gap-1 text-slate-400">
               <Filter className="h-4 w-4" />
               <span className="text-xs font-medium text-slate-700">Filters:</span>

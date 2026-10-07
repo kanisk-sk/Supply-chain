@@ -19,7 +19,7 @@ export default function PaginationControls({
   const { page, pages, total, limit } = meta;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+    <div data-pagination className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
       <div className="flex items-center gap-2 text-sm text-slate-700">
         <span>
           Showing <span className="font-semibold">{total > 0 ? (page - 1) * limit + 1 : 0}</span> to{" "}

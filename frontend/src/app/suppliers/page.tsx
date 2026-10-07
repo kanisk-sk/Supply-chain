@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
+import WorkspacePageHeader from "@/components/common/WorkspacePageHeader";
+import workspaceStyles from "@/components/common/workspace.module.css";
 import DataTable, { Column } from "@/components/common/DataTable";
 import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -191,15 +193,7 @@ export default function SuppliersPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Suppliers Directory
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Manage supplier partner details, contacts, and vendor codes
-              </p>
-            </div>
+          <WorkspacePageHeader title="Suppliers" section="Catalog" description="Supplier contacts and availability.">
             {canWriteSuppliers && (
               <button
                 onClick={handleOpenCreate}
@@ -208,7 +202,7 @@ export default function SuppliersPage() {
                 <Plus className="h-4 w-4" /> Add Supplier
               </button>
             )}
-          </div>
+          </WorkspacePageHeader>
 
           {feedback && (
             <FeedbackAlert
@@ -220,7 +214,7 @@ export default function SuppliersPage() {
           )}
 
           {/* Search bar */}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm max-w-md">
+          <div className={workspaceStyles.filters}>
             <Search className="h-4 w-4 text-slate-400" />
             <input
               type="text"

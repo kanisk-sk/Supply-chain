@@ -3,11 +3,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/common/AppLayout";
+import WorkspacePageHeader from "@/components/common/WorkspacePageHeader";
 import DataTable, { Column } from "@/components/common/DataTable";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { usersApi } from "@/lib/api";
 import { User, PaginationMeta } from "@/types/api";
-import { Users } from "lucide-react";
 
 // ADMIN-only (see PAGE_PERMISSIONS). Only ADMIN holds users:read/users:write
 // on the backend, so this page is unreachable for all other roles.
@@ -102,16 +102,7 @@ export default function AdminUsersPage() {
     <ProtectedRoute requiredPermissions={["users:read"]} requiredRoles={["ADMIN"]}>
       <AppLayout>
         <div className="space-y-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="h-5 w-5 text-indigo-600" />
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">User Management</h1>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              All system users and their assigned roles. User creation and role assignment are
-              performed by administrators via the backend.
-            </p>
-          </div>
+          <WorkspacePageHeader title="User management" section="Administration" description="User access, assigned roles, and warehouse assignments." />
 
           {feedback && (
             <FeedbackAlert type={feedback.type} message={feedback.message} onDismiss={() => setFeedback(null)} />
