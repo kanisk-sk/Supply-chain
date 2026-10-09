@@ -32,7 +32,6 @@ jobs:
         env:
           ENVIRONMENT: production
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.PRODUCTION_JWT_SECRET }}
           CORS_ORIGINS: ${{ vars.PRODUCTION_FRONTEND_ORIGIN }}
           DB_REQUIRE_TLS: 'true'
           MYSQL_CA_PEM: ${{ secrets.PRODUCTION_MYSQL_CA_PEM }}
@@ -41,6 +40,8 @@ jobs:
           DB_MAX_OVERFLOW: '0'
         run: |
           umask 077
+          # This job never signs user tokens; keep the API signing key out of CI.
+          export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
           export DB_SSL_CA="$RUNNER_TEMP/mysql-ca.pem"
           trap 'rm -f "$DB_SSL_CA"' EXIT
           python - <<'PY'
