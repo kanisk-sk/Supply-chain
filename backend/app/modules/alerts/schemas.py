@@ -10,7 +10,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from app.common.timestamps import iso_utc
+
+from pydantic import field_serializer, BaseModel, ConfigDict
 
 from app.modules.alerts.models import AlertSeverity, AlertType
 
@@ -27,6 +29,11 @@ class AlertRead(BaseModel):
     is_resolved: bool
     created_at: datetime
     resolved_at: datetime | None
+
+
+    @field_serializer('created_at', 'resolved_at')
+    def _serialize_utc(self, value):
+        return iso_utc(value)
 
 
 def alert_payload(alert: Any) -> dict:

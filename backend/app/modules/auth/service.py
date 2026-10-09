@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import UnauthorizedError
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, verify_password, password_token_version
 from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
 
@@ -30,4 +30,4 @@ class AuthService:
         return user
 
     def issue_token(self, user: User) -> str:
-        return create_access_token(user.id)
+        return create_access_token(user.id, extra={"pwd": password_token_version(user.password_hash)})

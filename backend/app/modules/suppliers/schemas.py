@@ -9,7 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from app.common.timestamps import iso_utc
+
+from pydantic import field_serializer, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class SupplierCreate(BaseModel):
@@ -25,7 +27,9 @@ class SupplierCreate(BaseModel):
     @field_validator("name", "code")
     @classmethod
     def _not_blank(cls, value: str) -> str:
-        return value.strip() if value.strip() else value
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
 
 
 class SupplierUpdate(BaseModel):
@@ -38,6 +42,21 @@ class SupplierUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=32)
     address: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
+
+
+    @field_validator('name', 'code', 'is_active')
+    @classmethod
+    def _required_when_present(cls, value):
+        if value is None:
+            raise ValueError("must not be null")
+        return value
+
+    @field_validator('name', 'code')
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
 
 
 class SupplierRead(BaseModel):
@@ -53,6 +72,11 @@ class SupplierRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+    @field_serializer('created_at', 'updated_at')
+    def _serialize_utc(self, value):
+        return iso_utc(value)
 
 
 def supplier_payload(supplier: Any) -> dict:

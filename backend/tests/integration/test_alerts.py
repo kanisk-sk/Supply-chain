@@ -18,20 +18,24 @@ from sqlalchemy import func, select
 from app.modules.alerts.models import Alert, AlertSeverity, AlertType
 from app.modules.alerts.service import AlertService
 from app.modules.shipments.models import Shipment, ShipmentStatus
-from app.modules.users.models import UserRole
+from app.modules.users.models import User, UserRole
 
 from tests.conftest import login
 
 
-def _headers_for(api_client, seed, role, email):
+def _headers_for(api_client, seed, role, email, warehouse_id=None):
     account = seed.user(email, role=role)
+    if warehouse_id is not None:
+        with seed.session_factory() as db:
+            db.get(User, account["id"]).warehouse_id = warehouse_id
+            db.commit()
     token = login(api_client, account["email"], account["password"])
     return {"Authorization": f"Bearer {token}"}
 
 
-def _whm_headers(api_client, seed):
+def _whm_headers(api_client, seed, warehouse_id):
     return _headers_for(
-        api_client, seed, UserRole.WAREHOUSE_MANAGER, "wh@alerts.com"
+        api_client, seed, UserRole.WAREHOUSE_MANAGER, "wh@alerts.com", warehouse_id
     )
 
 
@@ -56,7 +60,7 @@ def _setup(api_client, seed, catalog, stock=100, threshold=10):
         product_id=product["id"], warehouse_id=warehouse["id"], quantity=stock
     )
     return {
-        "wh": _whm_headers(api_client, seed),
+        "wh": _whm_headers(api_client, seed, warehouse["id"]),
         "scm": _scm_headers(api_client, seed),
         "analyst": _analyst_headers(api_client, seed),
         "warehouse": warehouse,
@@ -91,10 +95,10 @@ def _confirmed_order(api_client, ctx, quantity=10) -> dict:
 
 
 def _create_shipment(api_client, ctx, order_id, expected=None):
-    body = {"order_id": order_id}
+    body = {"order_id": order_id, "warehouse_id": ctx["warehouse"]["id"]}
     if expected is not None:
         body["expected_delivery_at"] = expected.isoformat()
-    return api_client.post("/api/v1/shipments", json=body, headers=ctx["wh"])
+    return api_client.post("/api/v1/shipments", json=body, headers=ctx["scm"])
 
 
 def _list_alerts(api_client, header, **params):
@@ -279,15 +283,20 @@ class TestLowStockLifecycle:
 class TestAlertConcurrency:
     @pytest.mark.db
     def test_concurrent_reconcile_dedupes_to_one_open_alert(
-        self, session_factory
+        self, session_factory, catalog
     ):
         """Racing reconciles for the same product must never open two alerts:
         the UNIQUE ``active_key`` collapses them into one at the DB level."""
 
+        supplier = catalog.supplier()
+        warehouse = catalog.warehouse(code="WH-RACE")
+        product = catalog.product(supplier["id"])
+        catalog.inventory(product["id"], warehouse["id"], Decimal("2"))
+
         def do_reconcile():
             with session_factory() as db:
                 AlertService(db).reconcile_low_stock(
-                    product_id=7,
+                    product_id=product["id"],
                     quantity=Decimal("2"),
                     threshold=Decimal("10"),
                     warehouse_code="WH-RACE",
@@ -304,7 +313,7 @@ class TestAlertConcurrency:
             rows = db.execute(select(Alert)).scalars().all()
             assert len(rows) == 1
             assert rows[0].is_resolved is False
-            assert rows[0].active_key == "LOW_STOCK:product:7"
+            assert rows[0].active_key == f"LOW_STOCK:product:{product['id']}"
 
     @pytest.mark.db
     def test_ensure_alert_upsert_refreshes_severity_on_existing_open(
@@ -432,10 +441,10 @@ class TestAlertsApi:
         _adjust(ctx, api_client, "-95")
         _adjust(ctx, api_client, "+6")
         order = _confirmed_order(api_client, ctx)
-        _create_shipment(
+        shipment = _create_shipment(
             api_client, ctx, order["id"],
             expected=datetime.utcnow() - timedelta(days=1),
-        )
+        ).json()["data"]
 
         all_data = _list_alerts(api_client, ctx["analyst"])
         assert all_data["total"] == 2  # one resolved LOW_STOCK + one open overdue
@@ -450,7 +459,7 @@ class TestAlertsApi:
 
         by_entity = _list_alerts(
             api_client, ctx["analyst"], entity_type="shipment",
-            entity_id=1,
+            entity_id=shipment["id"],
         )
         assert by_entity["total"] == 1
         assert by_entity["items"][0]["type"] == "SHIPMENT_OVERDUE"
@@ -497,3 +506,41 @@ class TestAlertsApi:
             headers=ctx["wh"],
         )
         assert response.status_code == 405  # GET-only collection, no write path
+
+@pytest.mark.db
+def test_global_low_stock_tracks_worst_site_and_manager_view_is_local(session_factory, catalog):
+    from types import SimpleNamespace
+    from app.common.exceptions import ForbiddenError
+    from app.modules.inventory.models import Inventory
+
+    supplier = catalog.supplier()
+    product = catalog.product(supplier["id"])
+    a = catalog.warehouse(code="WH-A")
+    b = catalog.warehouse(code="WH-B")
+    catalog.inventory(product["id"], a["id"], Decimal(0))
+    catalog.inventory(product["id"], b["id"], Decimal(5))
+    with session_factory() as db:
+        service = AlertService(db)
+        service.reconcile_low_stock(product_id=product["id"], quantity=Decimal(5),
+            threshold=Decimal(10), warehouse_code="WH-B")
+        db.commit()
+        alert = db.execute(select(Alert)).scalar_one()
+        assert alert.severity == AlertSeverity.CRITICAL and "WH-A" in alert.message
+        manager = SimpleNamespace(role=UserRole.WAREHOUSE_MANAGER, warehouse_id=b["id"])
+        local = service.get(alert.id, actor=manager)
+        assert local["severity"] == "WARNING" and "WH-A" not in local["message"]
+        row = db.execute(select(Inventory).where(Inventory.product_id == product["id"],
+            Inventory.warehouse_id == a["id"])).scalar_one()
+        row.quantity = Decimal(20)
+        service.reconcile_low_stock(product_id=product["id"], quantity=row.quantity,
+            threshold=Decimal(10), warehouse_code="WH-A")
+        db.commit(); db.refresh(alert)
+        assert alert.severity == AlertSeverity.WARNING and "WH-B" in alert.message
+        row = db.execute(select(Inventory).where(Inventory.product_id == product["id"],
+            Inventory.warehouse_id == b["id"])).scalar_one()
+        row.quantity = Decimal(20)
+        service.reconcile_product_low_stock(product_id=product["id"])
+        db.commit(); db.refresh(alert)
+        assert alert.is_resolved is True
+        with pytest.raises(ForbiddenError):
+            service.get(alert.id, actor=manager)

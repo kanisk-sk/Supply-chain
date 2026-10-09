@@ -11,6 +11,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from app.common.timestamps import normalize_utc
 from app.common.pagination import resolve_pagination
 from app.common.responses import build_paged_response, build_success_response
 from app.core.database import get_db
@@ -106,8 +107,8 @@ def list_transactions(
         product_id=product_id,
         warehouse_id=warehouse_id,
         txn_type=type,
-        start=start,
-        end=end,
+        start=normalize_utc(start),
+        end=normalize_utc(end),
         actor=actor,
     )
     resolved_page, resolved_limit = resolve_pagination(page, limit)

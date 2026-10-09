@@ -18,7 +18,7 @@ import pytest
 from app.modules.users.models import UserRole
 from tests.conftest import login
 
-TRACKING_PATTERN = re.compile(r"^TRK-[0-9A-F]{8}$")
+TRACKING_PATTERN = re.compile(r"^TRK-[0-9A-F]{24}$")
 
 PUBLIC_DATA_KEYS = {
     "tracking_number",

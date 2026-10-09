@@ -10,10 +10,9 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
-from app.core.database import Base
+from app.core.database import Base, create_db_engine
 
 # Import every module that registers ORM models so autogenerate can diff the
 # complete schema. A missing import here means a missing table in migrations.
@@ -26,13 +25,15 @@ import app.modules.orders.models  # noqa: F401
 import app.modules.shipments.models  # noqa: F401
 import app.modules.alerts.models  # noqa: F401
 import app.modules.audit_logs.models  # noqa: F401
+import app.modules.rate_limits.models  # noqa: F401
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+database_url = config.attributes.get("database_url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
@@ -54,11 +55,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations with a live DB connection."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_db_engine(database_url)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

@@ -137,14 +137,14 @@ class TestRunOverdueCheck:
     @pytest.mark.db
     def test_resolves_stale_alert_after_direct_delivery(self, session_factory, seed):
         actor = seed.user("jobs@sweep.com", role=UserRole.ANALYST)
-        _seed_overdue(session_factory, actor["id"])
+        ids = _seed_overdue(session_factory, actor["id"])
 
         with session_factory() as db:
             run_overdue_check(db)
         assert _open_alert_count(session_factory) == 1
 
         # Delivery happened outside the reactive path (direct status write).
-        _flip_status_directly(session_factory, 1, ShipmentStatus.DELIVERED)
+        _flip_status_directly(session_factory, ids["shipment_id"], ShipmentStatus.DELIVERED)
 
         with session_factory() as db:
             report = run_overdue_check(db)

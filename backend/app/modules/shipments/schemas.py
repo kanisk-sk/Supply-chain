@@ -8,10 +8,12 @@ filter — one definition, no drift.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.common.timestamps import iso_utc, normalize_utc
+
+from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import field_serializer, BaseModel, ConfigDict, field_validator
 
 from app.core.database import utcnow
 from app.state_machines.shipment import ShipmentStatus
@@ -21,7 +23,13 @@ class ShipmentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     order_id: int
+    warehouse_id: int | None = None
     expected_delivery_at: datetime | None = None
+
+    @field_validator("expected_delivery_at")
+    @classmethod
+    def _utc_timestamp(cls, value):
+        return normalize_utc(value)
 
 
 class ShipmentDispatchRequest(BaseModel):
@@ -29,6 +37,11 @@ class ShipmentDispatchRequest(BaseModel):
 
     warehouse_id: int
     expected_delivery_at: datetime | None = None
+
+    @field_validator("expected_delivery_at")
+    @classmethod
+    def _utc_timestamp(cls, value):
+        return normalize_utc(value)
 
 
 class ShipmentRead(BaseModel):
@@ -38,12 +51,17 @@ class ShipmentRead(BaseModel):
     shipment_number: str
     tracking_number: str
     order_id: int
+    warehouse_id: int | None = None
     status: ShipmentStatus
     expected_delivery_at: datetime | None
     actual_delivery_at: datetime | None
     created_by: int
     created_at: datetime
     updated_at: datetime
+
+    @field_serializer('created_at', 'updated_at', 'expected_delivery_at', 'actual_delivery_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
 
 
 class ShipmentStatusHistoryRead(BaseModel):
@@ -55,6 +73,10 @@ class ShipmentStatusHistoryRead(BaseModel):
     changed_at: datetime
     changed_by: int
 
+    @field_serializer('changed_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
+
 
 def is_delayed(
     expected_delivery_at: datetime | None,
@@ -65,7 +87,7 @@ def is_delayed(
     if expected_delivery_at is None or status == ShipmentStatus.DELIVERED:
         return False
     now = now or utcnow()
-    return expected_delivery_at < now
+    return normalize_utc(expected_delivery_at) < normalize_utc(now)
 
 
 def shipment_payload(shipment: Any) -> dict:
@@ -93,12 +115,12 @@ def public_tracking_payload(shipment: Any, history_rows: list[Any]) -> dict:
         "status": status.value if hasattr(status, "value") else status,
         "is_delayed": is_delayed(shipment.expected_delivery_at, shipment.status),
         "expected_delivery_at": (
-            shipment.expected_delivery_at.isoformat()
+            iso_utc(shipment.expected_delivery_at)
             if shipment.expected_delivery_at
             else None
         ),
         "actual_delivery_at": (
-            shipment.actual_delivery_at.isoformat()
+            iso_utc(shipment.actual_delivery_at)
             if shipment.actual_delivery_at
             else None
         ),
@@ -109,7 +131,7 @@ def public_tracking_payload(shipment: Any, history_rows: list[Any]) -> dict:
                     if hasattr(entry.status, "value")
                     else entry.status
                 ),
-                "changed_at": entry.changed_at.isoformat(),
+                "changed_at": iso_utc(entry.changed_at),
             }
             for entry in history_rows
         ],

@@ -212,7 +212,7 @@ an audit record, and re-checks related alerts. Clients can never set
 - **Response 201:** shipment with `status: "PACKED"`, plus an initial
   `shipment_status_history` row.
 - **Errors:** 404 (unknown order), 400 (invalid order state).
-- **Business rules:** one order may have many shipments (structural 1:N).
+- **Business rules:** one full-order shipment may be created per order. Legacy database structure remains 1:N, but application creation/dispatch rejects duplicate fulfilment.
 
 ### POST /api/v1/shipments/{id}/dispatch
 - **Transition:** `PACKED → IN_TRANSIT`; sets/keeps `expected_delivery_at`.
@@ -287,3 +287,14 @@ and percentiles are computed with MySQL window functions
 
 ML models are explicitly future scope and are never part of the transactional
 schema.
+## Production release contract updates
+
+- `GET /live` checks process liveness; `GET /ready` returns 503 when MySQL fails. Use `/ready` as the platform readiness probe.
+- Login POST and public tracking GET enforce shared database-backed per-client quotas; exhausted quotas return 429 with `Retry-After`, store failure returns 503. Request bodies above the configured limit return 413. API responses include `X-Request-ID`.
+- Warehouse manager object access is restricted to the assigned warehouse across inventory, orders, shipment details/history/transitions, warehouses and alerts. Managers cannot create warehouses or shipments. Shipment creation is an admin/supply-chain task and the UI assigns a warehouse before manager dispatch. `GET /warehouses/transfer-destinations` exposes only active destination id/code/name labels to managers; transferring out requires an assigned source and its response omits destination stock balances.
+- Admin user POST/PATCH accepts `warehouse_id`; warehouse managers require an active warehouse assignment. Other roles cannot carry an assignment. Required PATCH fields reject explicit null; optional nullable fields may be cleared. Passwords must fit bcrypt's 72 UTF-8 byte limit.
+- Password changes/reset invalidate prior JWTs. Tokens issued before the password-version claim was added also require sign-in again.
+- Cancelled/fulfilled orders cannot dispatch; an order with dispatched shipments cannot cancel. Concurrent shipment creation/dispatch serializes on the order and stock rows so a single order consumes stock once.
+- New tracking references use `TRK-` followed by 24 uppercase hex characters. Legacy 8-character references continue to resolve. Other formats are rejected with 422. Public responses keep the existing limited projection.
+- LOW_STOCK follows the lowest current stock for a product across warehouses. Manager alerts show only their current local stock message/severity; global resolved LOW_STOCK history is unavailable to managers because historical warehouse provenance was not recorded.
+- Datetime inputs with offsets normalize to UTC; response timestamps explicitly end in `Z`. Bottleneck analytics accepts `days=1..365` (default365), returning a bounded observation window.

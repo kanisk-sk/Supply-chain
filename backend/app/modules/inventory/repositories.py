@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 
 from app.common.pagination import apply_pagination, count_total
 from app.modules.inventory.models import (
@@ -77,11 +77,12 @@ class InventoryRepository:
         """Fetch one row with SELECT ... FOR UPDATE (locks against writers)."""
         return self.db.execute(
             select(Inventory)
+            .options(lazyload(Inventory.product), lazyload(Inventory.warehouse))
             .where(
                 Inventory.product_id == product_id,
                 Inventory.warehouse_id == warehouse_id,
             )
-            .with_for_update()
+            .with_for_update().execution_options(populate_existing=True)
         ).scalar_one_or_none()
 
     def get_many_for_update(
@@ -94,12 +95,13 @@ class InventoryRepository:
         """
         return self.db.execute(
             select(Inventory)
+            .options(lazyload(Inventory.product), lazyload(Inventory.warehouse))
             .where(
                 Inventory.product_id == product_id,
                 Inventory.warehouse_id.in_(warehouse_ids),
             )
             .order_by(Inventory.warehouse_id)
-            .with_for_update()
+            .with_for_update().execution_options(populate_existing=True)
         ).scalars().all()
 
     def add(self, inventory: Inventory) -> None:

@@ -53,7 +53,7 @@ def _setup(api_client, seed, catalog, threshold=10):
     product = catalog.product(
         supplier_id=supplier["id"], sku="SKU-INV", reorder_threshold=threshold
     )
-    headers = _warehouse_manager_headers(api_client, seed, wh_a["id"])
+    headers = _admin_headers(api_client, seed)
     return {
         "headers": headers,
         "supplier": supplier,
@@ -324,7 +324,7 @@ class TestServiceTransactionality:
         wh_a = catalog.warehouse(code="WH-TXA")
         wh_b = catalog.warehouse(code="WH-TXB")
         product = catalog.product(supplier_id=supplier["id"], sku="SKU-TX")
-        actor_dict = seed.user("tx@actor.com", role=UserRole.WAREHOUSE_MANAGER)
+        actor_dict = seed.user("tx@actor.com", role=UserRole.SUPPLY_CHAIN_MANAGER)
         actor = db_session.get(User, actor_dict["id"])
 
         from app.modules.inventory.models import Inventory as InvModel
@@ -396,7 +396,7 @@ class TestServiceTransactionality:
         supplier = catalog.supplier(code="SUP-RA")
         wh = catalog.warehouse(code="WH-RA1")
         product = catalog.product(supplier_id=supplier["id"], sku="SKU-RA")
-        actor_dict = seed.user("ra@actor.com", role=UserRole.WAREHOUSE_MANAGER)
+        actor_dict = seed.user("ra@actor.com", role=UserRole.SUPPLY_CHAIN_MANAGER)
         actor = db_session.get(User, actor_dict["id"])
         catalog.inventory(product_id=product["id"], warehouse_id=wh["id"], quantity=2)
 
@@ -650,6 +650,6 @@ class TestInventoryReads:
     @pytest.mark.db
     def test_missing_inventory_404(self, api_client, seed, catalog):
         wh_a = catalog.warehouse(code="WH-404")
-        headers = _warehouse_manager_headers(api_client, seed, wh_a["id"])
+        headers = _admin_headers(api_client, seed)
         response = api_client.get("/api/v1/inventory/999999", headers=headers)
         assert response.status_code == 404

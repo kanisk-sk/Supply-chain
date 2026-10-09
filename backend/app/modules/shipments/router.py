@@ -12,6 +12,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from app.common.timestamps import normalize_utc
 from app.common.pagination import resolve_pagination
 from app.common.responses import build_paged_response, build_success_response
 from app.core.database import get_db
@@ -44,8 +45,8 @@ def list_shipments(
         order_id=order_id,
         status=status,
         is_delayed=is_delayed,
-        start=start,
-        end=end,
+        start=normalize_utc(start),
+        end=normalize_utc(end),
         actor=actor,
     )
     resolved_page, resolved_limit = resolve_pagination(page, limit)
@@ -61,22 +62,22 @@ def list_shipments(
 @router.get("/{shipment_id}/history", summary="Append-only shipment status history")
 def get_shipment_history(
     shipment_id: int,
-    _user: User = Depends(require_permissions(Permission.SHIPMENTS_READ)),
+    actor: User = Depends(require_permissions(Permission.SHIPMENTS_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        ShipmentService(db).history(shipment_id), message="Shipment history retrieved"
+        ShipmentService(db).history(shipment_id, actor=actor), message="Shipment history retrieved"
     )
 
 
 @router.get("/{shipment_id}", summary="Get a single shipment")
 def get_shipment(
     shipment_id: int,
-    _user: User = Depends(require_permissions(Permission.SHIPMENTS_READ)),
+    actor: User = Depends(require_permissions(Permission.SHIPMENTS_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        ShipmentService(db).get(shipment_id), message="Shipment retrieved"
+        ShipmentService(db).get(shipment_id, actor=actor), message="Shipment retrieved"
     )
 
 

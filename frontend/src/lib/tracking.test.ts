@@ -20,6 +20,7 @@ describe("normalizeTrackingNumber", () => {
 describe("isValidTrackingNumberFormat", () => {
   it("accepts well-formed tracking numbers", () => {
     expect(isValidTrackingNumberFormat("TRK-1A2B3C4D")).toBe(true);
+    expect(isValidTrackingNumberFormat("TRK-1A2B3C4D5E6F7890ABCDEF12")).toBe(true);
     expect(isValidTrackingNumberFormat("trk-ffffffff")).toBe(true);
   });
 

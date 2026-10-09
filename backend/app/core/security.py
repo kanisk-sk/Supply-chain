@@ -11,6 +11,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import hashlib
+import hmac
+
 import bcrypt
 import jwt
 
@@ -30,6 +33,11 @@ def hash_password(raw_password: str) -> str:
     return bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode(
         "utf-8"
     )
+
+
+def password_token_version(password_hash: str) -> str:
+    """Secret-keyed fingerprint; a password reset invalidates previous tokens."""
+    return hmac.new(settings.JWT_SECRET.encode(), password_hash.encode(), hashlib.sha256).hexdigest()
 
 
 def verify_password(raw_password: str, password_hash: str) -> bool:
@@ -67,4 +75,4 @@ def create_access_token(
 
 def decode_access_token(token: str) -> dict[str, Any]:
     """Decode and validate a JWT. Raises ``jwt.InvalidTokenError`` on failure."""
-    return jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, settings.JWT_SECRET, algorithms=[JWT_ALGORITHM], options={"require": ["sub", "exp"]})

@@ -8,11 +8,13 @@ service layer and surface as ``VALIDATION_ERROR``/``NOT_FOUND``.
 
 from __future__ import annotations
 
+from app.common.timestamps import iso_utc
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import field_serializer, BaseModel, ConfigDict, field_validator
 
 from app.state_machines.order import OrderStatus
 
@@ -66,6 +68,10 @@ class OrderRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemRead]
+
+    @field_serializer('created_at', 'updated_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
 
 
 def order_payload(order: Any, *, include_shipments: bool = False) -> dict:

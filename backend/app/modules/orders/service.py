@@ -13,12 +13,13 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.common.transactions import transaction
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.orders.models import Order, OrderItem
 from app.modules.orders.repositories import OrderRepository
 from app.modules.orders.schemas import OrderCreate, order_payload
+from app.modules.shipments.repositories import ShipmentRepository
 from app.modules.products.repositories import ProductRepository
 from app.modules.users.models import User, UserRole
 from app.state_machines.order import OrderStatus, order_state_machine
@@ -69,16 +70,25 @@ class OrderService:
         )
         return {
             "items": [
-                order_payload(o, include_shipments=include_shipments)
+                self._payload(o, include_shipments=include_shipments, actor=actor)
                 for o in result.items
             ],
             "total": result.total,
         }
 
-    def get(self, order_id: int, *, include_shipments: bool = False) -> dict:
-        return order_payload(
-            self._get_or_raise(order_id), include_shipments=include_shipments
-        )
+    def get(self, order_id: int, *, include_shipments: bool = False, actor: User | None = None) -> dict:
+        order = self._get_or_raise(order_id)
+        if actor is not None and actor.role == UserRole.WAREHOUSE_MANAGER:
+            if actor.warehouse_id is None or not any(s.warehouse_id == actor.warehouse_id for s in order.shipments):
+                raise ForbiddenError("Warehouse manager cannot access this order")
+        return self._payload(order, include_shipments=include_shipments, actor=actor)
+
+    @staticmethod
+    def _payload(order: Order, *, include_shipments: bool, actor: User | None) -> dict:
+        data = order_payload(order, include_shipments=include_shipments)
+        if include_shipments and actor is not None and actor.role == UserRole.WAREHOUSE_MANAGER:
+            data["shipments"] = [s for s in data["shipments"] if s.get("warehouse_id") == actor.warehouse_id]
+        return data
 
     # ---- create ----
 
@@ -161,7 +171,12 @@ class OrderService:
     ) -> dict:
         """Validate against the state machine, persist, and audit atomically."""
         with transaction(self.db):
-            order = self._get_or_raise(order_id)
+            order = self.repo.get_by_id(order_id, for_update=True)
+            if order is None:
+                raise NotFoundError(f"Order {order_id} not found")
+            shipments = ShipmentRepository(self.db).for_order(order.id, for_update=True)
+            if target == OrderStatus.CANCELLED and any(s.status.value != "PACKED" for s in shipments):
+                raise ConflictError("Cannot cancel an order after dispatch")
             old_status = order.status
             # Raises InvalidStateTransitionError (409) when disallowed.
             order_state_machine.transition(old_status, target)

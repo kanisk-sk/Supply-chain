@@ -6,14 +6,15 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
+import { Tilt } from "@/components/core/tilt";
 import { Lock, Mail, ArrowLeft, ArrowRight, UserRound, Warehouse, Truck, ChartNoAxesColumnIncreasing, Plane } from "lucide-react";
 
-const DEV_CREDENTIALS = [
+const DEV_CREDENTIALS = process.env.NODE_ENV === "development" ? [
   { role: "ADMIN", icon: UserRound, email: "admin@example.com", pass: "Admin123!" },
   { role: "WAREHOUSE_MANAGER", icon: Warehouse, email: "warehouse@example.com", pass: "Warehouse123!" },
   { role: "SUPPLY_CHAIN_MANAGER", icon: Truck, email: "supply@example.com", pass: "Supply123!" },
   { role: "ANALYST", icon: ChartNoAxesColumnIncreasing, email: "analyst@example.com", pass: "Analyst123!" },
-];
+] : [];
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -83,7 +84,7 @@ export default function LoginPage() {
 
       {/* Login Panel */}
       <div className="relative z-20 w-full max-w-lg p-4 sm:p-8 lg:mr-16 xl:mr-32">
-        <div>
+        <Tilt>
           <div className="bg-white scm-hero-radius p-6 sm:p-7 shadow-2xl border border-slate-200">
           <Link
             href="/"
@@ -117,7 +118,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" method="post" onSubmit={handleSubmit}>
             <div>
               <label
                 htmlFor="email"
@@ -180,8 +181,8 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Dev Quick-Fill Credentials */}
-          <div className="mt-6 border-t border-slate-100 pt-4">
+          {/* Development-only credentials are excluded from production builds. */}
+          {process.env.NODE_ENV === "development" && <div className="mt-6 border-t border-slate-100 pt-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Dev Quick Login
@@ -208,9 +209,9 @@ export default function LoginPage() {
                 </button>
               ))}
             </div>
+          </div>}
           </div>
-          </div>
-        </div>
+        </Tilt>
       </div>
     </div>
   );

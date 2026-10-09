@@ -7,7 +7,7 @@ and invalid permissions are rejected with 403.
 
 import pytest
 
-from app.modules.users.models import UserRole
+from app.modules.users.models import User, UserRole
 
 # Write endpoints that require specific permissions
 WRITE_ENDPOINTS = [
@@ -91,47 +91,20 @@ class TestAnalyst:
 
 class TestWarehouseManager:
     @pytest.mark.db
-    def test_can_write_warehouses_inventory_shipments(self, api_client, seed, catalog):
-        headers = _login_and_header(api_client, seed, UserRole.WAREHOUSE_MANAGER)
-        # Warehouse write
-        wh = api_client.post(
-            "/api/v1/warehouses",
-            json={"code": "WH-NEW", "name": "New WH"},
-            headers=headers,
-        )
-        assert wh.status_code == 201
-        wh_id = wh.json()["data"]["id"]
-        wh2 = api_client.post(
-            "/api/v1/warehouses",
-            json={"code": "WH-NEW2", "name": "New WH 2"},
-            headers=headers,
-        ).json()["data"]["id"]
-        # Inventory write (using warehouse scoped to manager)
+    def test_can_update_assigned_warehouse_and_transfer_owned_stock(self, api_client, seed, catalog):
+        wh = catalog.warehouse(code="WH-NEW")
+        wh2 = catalog.warehouse(code="WH-NEW2")
+        account = seed.user("assigned-manager@test.com", role=UserRole.WAREHOUSE_MANAGER)
+        with seed.session_factory() as db:
+            db.get(User, account["id"]).warehouse_id = wh["id"]
+            db.commit()
+        headers = {"Authorization": "Bearer " + _login(api_client, account)}
+        assert api_client.post("/api/v1/warehouses", json={"code": "WH-FORBIDDEN", "name": "No"}, headers=headers).status_code == 403
+        assert api_client.patch(f"/api/v1/warehouses/{wh['id']}", json={"name": "Updated hub"}, headers=headers).status_code == 200
         supplier = catalog.supplier(code="SUP-B")
         product = catalog.product(supplier_id=supplier["id"], sku="SKU-B")
-        inv = api_client.post(
-            "/api/v1/inventory/adjust",
-            json={
-                "product_id": product["id"],
-                "warehouse_id": wh_id,
-                "delta": 10,
-            },
-            headers=headers,
-        )
-        assert inv.status_code == 200
-        transfer = api_client.post(
-            "/api/v1/inventory/transfer",
-            json={
-                "product_id": product["id"],
-                "from_warehouse_id": wh_id,
-                "to_warehouse_id": wh2,
-                "quantity": 3,
-            },
-            headers=headers,
-        )
-        assert transfer.status_code == 200
-        # Shipment write (dispatch/deliver) - need to create order/shipment first via admin
-        # For now test that the endpoint is accessible (will fail on business logic, not auth)
+        assert api_client.post("/api/v1/inventory/adjust", json={"product_id": product["id"], "warehouse_id": wh["id"], "delta": 10}, headers=headers).status_code == 200
+        assert api_client.post("/api/v1/inventory/transfer", json={"product_id": product["id"], "from_warehouse_id": wh["id"], "to_warehouse_id": wh2["id"], "quantity": 3}, headers=headers).status_code == 200
 
     @pytest.mark.db
     def test_can_read_allowed(self, api_client, seed):
@@ -319,7 +292,7 @@ class TestInvalidPermissionsAreCentralized:
     @pytest.mark.db
     def test_permission_declaration_matches_mapping(self):
         from app.modules.auth.permissions import Permission, ROLE_PERMISSIONS
-        from app.modules.users.models import UserRole
+        from app.modules.users.models import User, UserRole
 
         # Every role must be declared with its permission set.
         for role in UserRole:

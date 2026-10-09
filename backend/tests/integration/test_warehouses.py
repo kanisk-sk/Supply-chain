@@ -6,8 +6,8 @@ from app.modules.users.models import UserRole
 from tests.conftest import login
 
 
-def _manager_headers(api_client, seed):
-    account = seed.user("wh@mgr.com", role=UserRole.WAREHOUSE_MANAGER)
+def _admin_headers(api_client, seed):
+    account = seed.user("wh@mgr.com", role=UserRole.ADMIN)
     token = login(api_client, account["email"], account["password"])
     return {"Authorization": f"Bearer {token}"}
 
@@ -15,7 +15,7 @@ def _manager_headers(api_client, seed):
 class TestWarehouseCRUD:
     @pytest.mark.db
     def test_create_warehouse(self, api_client, seed):
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         response = api_client.post(
             "/api/v1/warehouses",
             json={"code": "WH-MAIN", "name": "Main Hub", "address": "1 Main St"},
@@ -29,7 +29,7 @@ class TestWarehouseCRUD:
     @pytest.mark.db
     def test_duplicate_code_conflict(self, api_client, seed, catalog):
         catalog.warehouse(code="WH-DUP")
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         response = api_client.post(
             "/api/v1/warehouses",
             json={"code": "WH-DUP", "name": "Other"},
@@ -41,7 +41,7 @@ class TestWarehouseCRUD:
     @pytest.mark.db
     def test_list_and_get(self, api_client, seed, catalog):
         made = catalog.warehouse(code="WH-A", name="Warehouse A")
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         listing = api_client.get("/api/v1/warehouses", headers=headers)
         assert listing.status_code == 200
         assert any(w["code"] == "WH-A" for w in listing.json()["data"])
@@ -51,7 +51,7 @@ class TestWarehouseCRUD:
     @pytest.mark.db
     def test_patch_warehouse(self, api_client, seed, catalog):
         made = catalog.warehouse(code="WH-P", name="Before")
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         response = api_client.patch(
             f"/api/v1/warehouses/{made['id']}",
             json={"name": "After", "is_active": False},
@@ -66,7 +66,7 @@ class TestWarehouseCRUD:
     def test_patch_duplicate_code_conflict(self, api_client, seed, catalog):
         catalog.warehouse(code="WH-EXIST")
         made = catalog.warehouse(code="WH-TARGET")
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         response = api_client.patch(
             f"/api/v1/warehouses/{made['id']}",
             json={"code": "WH-EXIST"},
@@ -76,6 +76,6 @@ class TestWarehouseCRUD:
 
     @pytest.mark.db
     def test_missing_warehouse_404(self, api_client, seed):
-        headers = _manager_headers(api_client, seed)
+        headers = _admin_headers(api_client, seed)
         response = api_client.get("/api/v1/warehouses/99999", headers=headers)
         assert response.status_code == 404

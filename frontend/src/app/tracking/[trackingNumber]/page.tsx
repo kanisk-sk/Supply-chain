@@ -28,13 +28,14 @@ const STEP_LABELS = ["Packed", "In transit", "Delivered"];
 export default function TrackingResultPage() {
   const params = useParams<{ trackingNumber: string }>();
   const router = useRouter();
-  const rawNumber = params?.trackingNumber ? decodeURIComponent(params.trackingNumber) : "";
+  const rawNumber = params?.trackingNumber ? params.trackingNumber : "";
   const trackingNumber = normalizeTrackingNumber(rawNumber);
 
   const [info, setInfo] = useState<PublicTrackingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [lookupInput, setLookupInput] = useState("");
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function TrackingResultPage() {
       setLoading(true);
       setNotFound(false);
       setError(null);
+      setInfo(null);
       try {
         const data = await trackingApi.get(trackingNumber);
         if (!cancelled) setInfo(data);
@@ -66,7 +68,7 @@ export default function TrackingResultPage() {
     return () => {
       cancelled = true;
     };
-  }, [trackingNumber]);
+  }, [trackingNumber, attempt]);
 
   const handleLookup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +142,7 @@ export default function TrackingResultPage() {
             </form>
           </div>
         ) : error ? (
-          <FeedbackAlert type="error" message={error} onDismiss={() => setError(null)} />
+          <div><FeedbackAlert type="error" message={error} /><button type="button" onClick={() => setAttempt(value => value + 1)} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm">Retry lookup</button></div>
         ) : info ? (
           <div className="space-y-6">
             {/* Current status card */}

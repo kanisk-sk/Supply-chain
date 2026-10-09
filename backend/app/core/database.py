@@ -16,9 +16,6 @@ engine and never touches business data.
 from datetime import datetime, timezone
 from typing import Generator
 
-from datetime import datetime, timezone
-from typing import Generator
-
 from sqlalchemy import Enum as SAEnum, MetaData, text, create_engine
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session, sessionmaker
@@ -57,12 +54,25 @@ def sa_enum(enum_cls: type) -> SAEnum:
 
 def create_db_engine(database_url: str):
     """Build an engine for a MySQL DSN with production-safe pool settings."""
+    connection_options = {
+        "connect_timeout": settings.DB_CONNECT_TIMEOUT,
+        "init_command": "SET time_zone = '+00:00'",
+        "read_timeout": settings.DB_READ_TIMEOUT,
+        "write_timeout": settings.DB_WRITE_TIMEOUT,
+    }
+    if settings.ENVIRONMENT in {"staging", "production"} and settings.DB_REQUIRE_TLS:
+        connection_options.update(ssl_disabled=False, ssl_verify_cert=True, ssl_verify_identity=True)
+        if settings.DB_SSL_CA:
+            connection_options["ssl_ca"] = settings.DB_SSL_CA
     return create_engine(
         database_url,
         pool_pre_ping=True,
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,
         pool_recycle=settings.DB_POOL_RECYCLE,
+        pool_timeout=settings.DB_CONNECT_TIMEOUT,
+        connect_args=connection_options,
+        hide_parameters=True,
     )
 
 

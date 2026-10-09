@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
+from types import SimpleNamespace
 
 from sqlalchemy import Select, and_, or_, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 
 from app.common.pagination import apply_pagination, count_total
 from app.core.database import utcnow
@@ -38,7 +41,10 @@ class AlertRepository:
         if alert_type is not None:
             stmt = stmt.where(Alert.type == alert_type)
         if severity is not None:
-            stmt = stmt.where(Alert.severity == severity)
+            if warehouse_id is None:
+                stmt = stmt.where(Alert.severity == severity)
+            else:
+                stmt = stmt.where(or_(Alert.type == AlertType.LOW_STOCK, Alert.severity == severity))
         if entity_type is not None:
             stmt = stmt.where(Alert.entity_type == entity_type)
         if entity_id is not None:
@@ -46,39 +52,41 @@ class AlertRepository:
         if is_resolved is not None:
             stmt = stmt.where(Alert.is_resolved.is_(is_resolved))
         if warehouse_id is not None:
-            # Filter alerts relevant to the warehouse:
-            # - LOW_STOCK: join through inventory (product + warehouse)
-            # - SHIPMENT_OVERDUE: join through shipments (shipment.warehouse_id)
             from app.modules.inventory.models import Inventory
+            from app.modules.products.models import Product
             from app.modules.shipments.models import Shipment
-            from sqlalchemy import or_
-            
-            low_stock_filter = and_(
-                Alert.type == AlertType.LOW_STOCK,
-                Alert.entity_type == "product",
-                Alert.entity_id == Inventory.product_id,
+
+            # Global product alerts have no warehouse history. Expose only a
+            # currently-low local condition; never leak another site's message.
+            local_low_stock = select(Inventory.id).join(
+                Product, Product.id == Inventory.product_id
+            ).where(
+                Inventory.product_id == Alert.entity_id,
                 Inventory.warehouse_id == warehouse_id,
-            )
-            shipment_overdue_filter = and_(
-                Alert.type == AlertType.SHIPMENT_OVERDUE,
-                Alert.entity_type == "shipment",
-                Alert.entity_id == Shipment.id,
+                Inventory.quantity < Product.reorder_threshold,
+            ).exists()
+            if severity is not None:
+                # Match the local severity returned in the manager payload.
+                severity_quantity = (Inventory.quantity == 0 if severity == AlertSeverity.CRITICAL
+                                     else Inventory.quantity > 0 if severity == AlertSeverity.WARNING
+                                     else Inventory.quantity < 0)
+                local_low_stock = select(Inventory.id).join(
+                    Product, Product.id == Inventory.product_id
+                ).where(Inventory.product_id == Alert.entity_id,
+                        Inventory.warehouse_id == warehouse_id,
+                        Inventory.quantity < Product.reorder_threshold,
+                        severity_quantity).exists()
+            local_shipment = select(Shipment.id).where(
+                Shipment.id == Alert.entity_id,
                 Shipment.warehouse_id == warehouse_id,
-            )
-            stmt = stmt.where(
-                or_(
-                    low_stock_filter,
-                    shipment_overdue_filter,
-                )
-            ).join(
-                Inventory, 
-                and_(Alert.type == AlertType.LOW_STOCK, Alert.entity_type == "product", Alert.entity_id == Inventory.product_id),
-                isouter=True
-            ).join(
-                Shipment,
-                and_(Alert.type == AlertType.SHIPMENT_OVERDUE, Alert.entity_type == "shipment", Alert.entity_id == Shipment.id),
-                isouter=True
-            )
+            ).exists()
+            stmt = stmt.where(or_(
+                and_(Alert.type == AlertType.LOW_STOCK,
+                     Alert.entity_type == "product",
+                     Alert.is_resolved.is_(False), local_low_stock),
+                and_(Alert.type == AlertType.SHIPMENT_OVERDUE,
+                     Alert.entity_type == "shipment", local_shipment),
+            ))
         total = count_total(self.db, stmt, Alert.id)
         items = self.db.execute(
             apply_pagination(
@@ -99,7 +107,7 @@ class AlertRepository:
                 Alert.entity_type == entity_type,
                 Alert.entity_id == entity_id,
                 Alert.is_resolved.is_(False),
-            )
+            ).with_for_update().execution_options(populate_existing=True)
         ).scalars().all()
 
     def has_unresolved(
@@ -174,3 +182,76 @@ class AlertRepository:
                 Inventory.product_id == product_id
             )
         ).scalar_one()
+
+    def lowest_product_stock(self, product_id: int):
+        from app.modules.inventory.models import Inventory
+        from app.modules.products.models import Product
+        from app.modules.warehouses.models import Warehouse
+
+        # The product mutex is acquired before stock writes. Lock stock rows
+        # separately: joining Warehouse here would also lock shared warehouse
+        # rows on MySQL and introduce unnecessary cross-product deadlocks.
+        threshold = self.db.execute(select(Product.reorder_threshold).where(
+            Product.id == product_id
+        ).with_for_update()).scalar_one_or_none()
+        rows = self.db.execute(
+            select(Inventory.quantity, Inventory.warehouse_id)
+            .where(Inventory.product_id == product_id)
+            .order_by(Inventory.warehouse_id).with_for_update()
+        ).all()
+        if not rows or threshold is None:
+            return None
+        lowest = min(rows, key=lambda row: (row.quantity, row.warehouse_id))
+        code = self.db.execute(select(Warehouse.code).where(
+            Warehouse.id == lowest.warehouse_id
+        )).scalar_one()
+        return SimpleNamespace(quantity=lowest.quantity, code=code, reorder_threshold=threshold)
+
+    def local_low_stock(self, product_id: int, warehouse_id: int):
+        return self.local_low_stocks([product_id], warehouse_id).get(product_id)
+
+    def local_low_stocks(self, product_ids: list[int], warehouse_id: int) -> dict:
+        from app.modules.inventory.models import Inventory
+        from app.modules.products.models import Product
+        from app.modules.warehouses.models import Warehouse
+        if not product_ids:
+            return {}
+        rows = self.db.execute(
+            select(Inventory.product_id, Inventory.quantity, Warehouse.code)
+            .join(Warehouse, Warehouse.id == Inventory.warehouse_id)
+            .join(Product, Product.id == Inventory.product_id)
+            .where(Inventory.product_id.in_(product_ids),
+                   Inventory.warehouse_id == warehouse_id,
+                   Inventory.quantity < Product.reorder_threshold)
+        ).all()
+        return {row.product_id: row for row in rows}
+
+    def shipment_in_warehouse(self, shipment_id: int, warehouse_id: int) -> bool:
+        from app.modules.shipments.models import Shipment
+        return self.db.execute(select(Shipment.id).where(
+            Shipment.id == shipment_id, Shipment.warehouse_id == warehouse_id
+        )).scalar_one_or_none() is not None
+
+    def unresolved_overdue_ids(self) -> set[int]:
+        return set(self.db.execute(select(Alert.id).where(
+            Alert.type == AlertType.SHIPMENT_OVERDUE,
+            Alert.is_resolved.is_(False),
+        )).scalars())
+
+
+    def ensure_alert(self, *, alert_type, severity, entity_type, entity_id, message):
+        stmt = mysql_insert(Alert).values(
+            type=alert_type,
+            severity=severity,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            message=message,
+            is_resolved=False,
+            active_key=self.unresolve_key(alert_type, entity_type, entity_id),
+            created_at=utcnow(),
+        )
+        stmt = stmt.on_duplicate_key_update(
+            severity=stmt.inserted.severity,
+            message=stmt.inserted.message,
+        )
+        self.db.execute(stmt)

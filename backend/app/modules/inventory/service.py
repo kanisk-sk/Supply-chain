@@ -33,6 +33,7 @@ from app.common.exceptions import (
 )
 from app.common.transactions import transaction
 from app.modules.alerts.service import AlertService
+from app.modules.auth.scope import require_warehouse_scope
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.inventory.models import (
     Inventory,
@@ -140,14 +141,17 @@ class InventoryService:
         reason: str | None,
         actor: User,
     ) -> dict:
+        require_warehouse_scope(actor, warehouse_id)
         with transaction(self.db):
-            product = self.products.get_by_id(product_id)
+            product = self.products.get_by_id(product_id, for_update=True)
             if product is None:
                 raise NotFoundError(f"Product {product_id} not found")
             warehouse = self.warehouses.get_by_id(warehouse_id)
             if warehouse is None:
                 raise NotFoundError(f"Warehouse {warehouse_id} not found")
 
+            if not warehouse.is_active:
+                raise ValidationError("Warehouse must be active for inventory changes")
             row = self.repo.get_for_update(product_id, warehouse_id)
             if row is None:
                 # New (product, warehouse) pair starts at zero stock.
@@ -233,8 +237,9 @@ class InventoryService:
                 },
             )
 
+        require_warehouse_scope(actor, from_warehouse_id)
         with transaction(self.db):
-            product = self.products.get_by_id(product_id)
+            product = self.products.get_by_id(product_id, for_update=True)
             if product is None:
                 raise NotFoundError(f"Product {product_id} not found")
             from_wh = self.warehouses.get_by_id(from_warehouse_id)
@@ -244,6 +249,8 @@ class InventoryService:
             if to_wh is None:
                 raise NotFoundError(f"Warehouse {to_warehouse_id} not found")
 
+            if not from_wh.is_active or not to_wh.is_active:
+                raise ValidationError("Transfer warehouses must be active")
             # Lock both warehouse rows for this product, in one ordered statement,
             # so concurrent transfers acquire locks in the same order.
             rows = self.repo.get_many_for_update(
@@ -349,6 +356,9 @@ class InventoryService:
                 warehouse_code=to_wh.code,
             )
             self.db.flush()
+            if actor.role == UserRole.WAREHOUSE_MANAGER:
+                # Destination network visibility authorizes transfer, not its stock balance.
+                return [inventory_payload(source)]
             return [inventory_payload(source), inventory_payload(destination)]
 
     def dispatch_stock(
@@ -372,6 +382,8 @@ class InventoryService:
 
         Returns ``(old_quantity, new_quantity)`` so the caller can audit them.
         """
+        require_warehouse_scope(actor, warehouse_id)
+        product = self.products.get_by_id(product_id, for_update=True)
         row = self.repo.get_for_update(product_id, warehouse_id)
         if row is None or row.quantity < quantity:
             raise InsufficientInventoryError(
@@ -384,7 +396,6 @@ class InventoryService:
                 },
             )
 
-        product = self.products.get_by_id(product_id)
         warehouse = self.warehouses.get_by_id(warehouse_id)
         old_quantity = row.quantity
         new_quantity = old_quantity - quantity

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 
 from app.common.pagination import apply_pagination, count_total
 from app.modules.products.models import Product
@@ -41,10 +41,11 @@ class ProductRepository:
         items = self.db.execute(apply_pagination(stmt.order_by(Product.id), page, limit)).scalars().all()
         return ProductListResult(items=items, total=total)
 
-    def get_by_id(self, product_id: int) -> Product | None:
-        return self.db.execute(
-            select(Product).where(Product.id == product_id)
-        ).scalar_one_or_none()
+    def get_by_id(self, product_id: int, *, for_update: bool = False) -> Product | None:
+        stmt = select(Product).where(Product.id == product_id)
+        if for_update:
+            stmt = stmt.options(lazyload(Product.supplier)).with_for_update().execution_options(populate_existing=True)
+        return self.db.execute(stmt).scalar_one_or_none()
 
     def exists_by_sku(self, sku: str, *, exclude_id: int | None = None) -> bool:
         stmt = select(func.count()).select_from(Product).where(Product.sku == sku)

@@ -13,10 +13,9 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
+from app.common.timestamps import iso_utc
 from app.modules.analytics.repositories import (
     PERIODS,
-    STAGE_PACKED_TO_TRANSIT,
-    STAGE_TRANSIT_TO_DELIVERED,
     AnalyticsRepository,
 )
 
@@ -158,34 +157,16 @@ class AnalyticsService:
 
     # ---- bottlenecks ----
 
-    def bottlenecks(self) -> dict:
-        segments = [
-            self._segment(
-                "order_confirmed_to_packed",
-                self.repo.confirm_to_packed_stats,
-                self.repo.confirm_to_packed_percentile,
-            ),
-            self._segment(
-                "packed_to_in_transit",
-                lambda: self.repo.stage_stats(*STAGE_PACKED_TO_TRANSIT),
-                lambda p: self.repo.stage_percentile(*STAGE_PACKED_TO_TRANSIT, p),
-            ),
-            self._segment(
-                "in_transit_to_delivered",
-                lambda: self.repo.stage_stats(*STAGE_TRANSIT_TO_DELIVERED),
-                lambda p: self.repo.stage_percentile(*STAGE_TRANSIT_TO_DELIVERED, p),
-            ),
-        ]
-        return {"segments": segments, "unit": "hours"}
-
-    def _segment(self, name, stats_fn, percentile_fn) -> dict:
-        count, avg_seconds, min_seconds, max_seconds = stats_fn()
-        return {
-            "name": name,
-            "count": count,
-            "avg_hours": _hours(avg_seconds),
-            "min_hours": _hours(min_seconds),
-            "max_hours": _hours(max_seconds),
-            "p50_hours": _hours(percentile_fn(0.5)),
-            "p90_hours": _hours(percentile_fn(0.9)),
-        }
+    def bottlenecks(self, *, days: int = 365) -> dict:
+        start, end = self._window("day", days)
+        segments = []
+        for name, values in self.repo.bottleneck_reports(start=start, end=end):
+            count, average, minimum, maximum, p50, p90 = values
+            segments.append({
+                "name": name, "count": int(count), "avg_hours": _hours(average),
+                "min_hours": _hours(minimum), "max_hours": _hours(maximum),
+                "p50_hours": _hours(p50), "p90_hours": _hours(p90),
+            })
+        return {"segments": segments, "unit": "hours", "days": days,
+                "window_start": iso_utc(start), "window_end": iso_utc(end),
+                "window_basis": "transitions beginning and ending within the window"}

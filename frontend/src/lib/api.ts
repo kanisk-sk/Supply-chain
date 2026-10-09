@@ -3,6 +3,7 @@ import {
   ApiPagedResponse,
   PublicTrackingInfo,
   User,
+  UserRole,
   Supplier,
   Product,
   Warehouse,
@@ -46,6 +47,8 @@ export function setStoredToken(token: string): void {
   localStorage.setItem("token", token);
 }
 
+export const SESSION_EXPIRED_EVENT = "supply-chain:session-expired";
+
 export function removeStoredToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("token");
@@ -82,19 +85,39 @@ export async function request<T = any>(
     ...(customHeaders || {}),
   };
 
-  const response = await fetch(url, {
-    headers,
-    ...customOptions,
-  });
-
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  if (customOptions.signal?.aborted) controller.abort();
+  customOptions.signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let response: Response;
   let data: any;
   try {
-    data = await response.json();
-  } catch (err) {
-    data = null;
+    response = await fetch(url, { ...customOptions, headers, signal: controller.signal });
+    try { data = await response.json(); }
+    catch (error) {
+      if (controller.signal.aborted) throw error;
+      data = null;
+    }
+  } catch (error) {
+    if (controller.signal.aborted && !customOptions.signal?.aborted) {
+      throw new ApiError("The request timed out. Please try again.", "REQUEST_TIMEOUT", 408);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    customOptions.signal?.removeEventListener("abort", abortFromCaller);
   }
 
+
   if (!response.ok) {
+    if (response.status === 401 && token && endpoint !== "/auth/login") {
+      // Ignore late failures from requests belonging to a previous session.
+      if (getStoredToken() === token) {
+        removeStoredToken();
+        if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      }
+    }
     const errorInfo = data?.error;
     const message =
       errorInfo?.message ||
@@ -282,6 +305,7 @@ export const shipmentsApi = {
   },
   create: async (payload: {
     order_id: number;
+    warehouse_id?: number | null;
     expected_delivery_at?: string | null;
   }): Promise<Shipment> => {
     const res = await request<ApiResponse<Shipment>>("/shipments", {
@@ -405,6 +429,9 @@ export const suppliersApi = {
 
 // ------------------- WAREHOUSES -------------------
 export const warehousesApi = {
+  transferDestinations: async (page: number): Promise<ApiPagedResponse<Pick<Warehouse, "id" | "code" | "name">>> => {
+    return request("/warehouses/transfer-destinations", { params: { page, limit: 100 } });
+  },
   list: async (params?: {
     page?: number;
     limit?: number;
@@ -473,7 +500,23 @@ export const trackingApi = {
 };
 
 // ------------------- USERS -------------------
+export interface UserWrite {
+  name: string;
+  email: string;
+  password?: string;
+  role: UserRole;
+  is_active: boolean;
+  warehouse_id: number | null;
+}
 export const usersApi = {
+  create: async (payload: UserWrite & { password: string }): Promise<User> => {
+    const response = await request<ApiResponse<User>>("/users", { method: "POST", body: JSON.stringify(payload) });
+    return response.data;
+  },
+  update: async (id: number, payload: Partial<UserWrite>): Promise<User> => {
+    const response = await request<ApiResponse<User>>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+    return response.data;
+  },
   list: async (params?: {
     page?: number;
     limit?: number;
@@ -484,3 +527,22 @@ export const usersApi = {
     return request<ApiPagedResponse<User>>("/users", { params });
   },
 };
+
+// Follow metadata rather than silently restricting form choices to the first page.
+export async function listAllPages<T>(load: (page: number) => Promise<ApiPagedResponse<T>>): Promise<T[]> {
+  const result: T[] = [];
+  let page = 1;
+  while (true) {
+    const response = await load(page);
+    result.push(...response.data);
+    if (page >= response.meta.pages) return result;
+    page += 1;
+  }
+}
+
+export async function inventoryProductChoices(canReadProducts: boolean): Promise<Product[]> {
+  if (canReadProducts) return listAllPages(page => productsApi.list({ page, limit: 100 }));
+  // Warehouse managers can read scoped inventory but not the global product catalog.
+  const inventory = await listAllPages(page => inventoryApi.list({ page, limit: 100 }));
+  return Array.from(new Map(inventory.filter(item => item.product).map(item => [item.product_id, item.product!])).values());
+}

@@ -6,11 +6,13 @@ append-only and returned separately from live quantities.
 
 from __future__ import annotations
 
+from app.common.timestamps import iso_utc
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import field_serializer, BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.inventory.models import InventoryTransactionType
 
@@ -78,6 +80,10 @@ class InventoryRead(BaseModel):
     warehouse: _WarehouseBrief
     below_threshold: bool = False
 
+    @field_serializer('created_at', 'updated_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
+
 
 class InventoryTransactionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -91,6 +97,10 @@ class InventoryTransactionRead(BaseModel):
     reference_id: int | None
     created_by: int
     created_at: datetime
+
+    @field_serializer('created_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
 
 
 def inventory_payload(inventory: Any, *, below_threshold: bool | None = None) -> dict:

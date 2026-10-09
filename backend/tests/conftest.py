@@ -12,8 +12,12 @@ without ever touching the development schema.
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import text, delete, inspect
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -31,7 +35,7 @@ from app.modules.warehouses.models import Warehouse
 from app.modules.products.models import Product
 from app.modules.inventory.models import Inventory
 
-# Import every model module so metadata is complete before create_all/drop_all.
+# Import every model module so metadata is complete before migration/schema verification.
 import app.modules.users.models  # noqa: F401
 import app.modules.suppliers.models  # noqa: F401
 import app.modules.products.models  # noqa: F401
@@ -41,6 +45,7 @@ import app.modules.orders.models  # noqa: F401
 import app.modules.shipments.models  # noqa: F401
 import app.modules.alerts.models  # noqa: F401
 import app.modules.audit_logs.models  # noqa: F401
+import app.modules.rate_limits.models  # noqa: F401
 
 
 @pytest.fixture(scope="session")
@@ -55,17 +60,29 @@ def client(app):
 
 
 def mysql_available() -> bool:
+    if not settings.TEST_DATABASE_URL:
+        return False
     try:
-        check_database_connectivity()
+        probe = create_db_engine(settings.TEST_DATABASE_URL)
+        try:
+            check_database_connectivity(probe)
+        finally:
+            probe.dispose()
         return True
     except Exception:
         return False
 
 
+def pytest_addoption(parser):
+    parser.addoption("--require-db", action="store_true", help="Fail if database tests cannot run")
+
+
 @pytest.fixture(scope="session")
-def mysql_db():
+def mysql_db(request):
     """Set when a MySQL server (the app engine) is reachable."""
     if not mysql_available():
+        if request.config.getoption("--require-db"):
+            pytest.fail("Required disposable MySQL test database is unavailable")
         pytest.skip("MySQL is not reachable; skipping database-backed tests")
     return True
 
@@ -74,12 +91,16 @@ def mysql_db():
 def test_database(mysql_db):
     """Provision an isolated schema in the configured test database.
 
-    The schema is created from the same metadata used by migrations, so it is
-    always in sync with the canonical models.
+    The caller must provision an EMPTY disposable test schema. Real Alembic
+    migrations build it; per-test cleanup deletes rows without bypassing DDL.
     """
     url = settings.TEST_DATABASE_URL
     if not url:
         pytest.skip("TEST_DATABASE_URL is not configured")
+    test_url = make_url(url)
+    app_url = make_url(settings.DATABASE_URL)
+    if test_url == app_url or not test_url.database or "test" not in test_url.database.lower():
+        pytest.fail("TEST_DATABASE_URL must identify a distinct disposable test schema")
 
     engine = create_db_engine(url)
     try:
@@ -88,16 +109,20 @@ def test_database(mysql_db):
     except Exception:
         pytest.skip("TEST_DATABASE_URL is not reachable")
 
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    if inspect(engine).get_table_names():
+        pytest.fail("Refusing to reset a nonempty test schema; provision a fresh disposable database")
+    cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    cfg.set_main_option("script_location", str(Path(__file__).resolve().parents[1] / "alembic"))
+    cfg.attributes["database_url"] = url
+    command.upgrade(cfg, "head")
     yield engine
-    Base.metadata.drop_all(engine)
     engine.dispose()
 
 
 def _reset_schema(engine) -> None:
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            conn.execute(delete(table))
 
 
 @pytest.fixture()
@@ -144,7 +169,7 @@ def api_client(test_database):
         finally:
             db.close()
 
-    test_app = create_app()
+    test_app = create_app(rate_limit_session_factory=factory)
     test_app.dependency_overrides[get_db] = override_get_db
     try:
         with TestClient(test_app, raise_server_exceptions=False) as test_client:

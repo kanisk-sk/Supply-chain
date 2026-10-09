@@ -14,7 +14,7 @@ import { Warehouse, PaginationMeta } from "@/types/api";
 import { Warehouse as WarehouseIcon, Plus, Edit2 } from "lucide-react";
 
 export default function WarehousesPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const canWriteWarehouses = hasPermission("warehouses:write");
 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -149,7 +149,7 @@ export default function WarehousesPage() {
         <div className="space-y-6">
           {/* Header */}
           <WorkspacePageHeader title="Warehouses" section="Catalog" description="Storage facilities and distribution hubs.">
-            {canWriteWarehouses && (
+            {canWriteWarehouses && hasRole("ADMIN") && (
               <button
                 onClick={handleOpenCreate}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User, UserRole, Permission } from "@/types/api";
-import { authApi, getStoredToken, setStoredToken, removeStoredToken } from "@/lib/api";
+import { authApi, getStoredToken, setStoredToken, removeStoredToken, ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { hasPermission as checkPermission, hasRole as checkRole, ROLE_PERMISSIONS } from "@/config/navigation";
 
@@ -10,6 +10,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  authError: string | null;
+  retryAuth: () => void;
   isAuthenticated: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
@@ -26,36 +28,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const retryAuth = () => { setIsLoading(true); setAuthError(null); setAuthAttempt(value => value + 1); };
 
   const refreshUser = async () => {
+    const requestedToken = getStoredToken();
     try {
       const currentUser = await authApi.me();
-      setUser(currentUser);
+      if (getStoredToken() !== requestedToken) return;
+      setAuthError(null); setUser(currentUser);
     } catch (err) {
-      removeStoredToken();
-      setToken(null);
-      setUser(null);
+      if (getStoredToken() !== requestedToken && getStoredToken() !== null) return;
+      if (err instanceof ApiError && err.status === 401) {
+        removeStoredToken(); setToken(null); setUser(null);
+      } else {
+        setAuthError("Unable to check your session. Please try again.");
+        throw err;
+      }
     }
   };
 
   useEffect(() => {
+    let cancelled = false;
     const initAuth = async () => {
       const storedToken = getStoredToken();
       if (storedToken) {
         setToken(storedToken);
         try {
           const currentUser = await authApi.me();
-          setUser(currentUser);
+          if (cancelled || getStoredToken() !== storedToken) return;
+          setAuthError(null); setUser(currentUser);
         } catch (err) {
-          removeStoredToken();
-          setToken(null);
-          setUser(null);
+          if (cancelled || (getStoredToken() !== storedToken && getStoredToken() !== null)) return;
+          if (err instanceof ApiError && err.status === 401) {
+            removeStoredToken(); setToken(null); setUser(null);
+          } else {
+            setAuthError("Unable to check your session. Please try again.");
+          }
         }
+      } else {
+        setToken(null); setUser(null);
       }
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     };
 
     initAuth();
+    return () => { cancelled = true; };
+  }, [authAttempt]);
+
+
+  useEffect(() => {
+    const expireSession = () => {
+      setToken(null); setUser(null); setAuthError(null); setIsLoading(false);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    const syncSession = (event: StorageEvent) => { if (event.key === "token") retryAuth(); };
+    window.addEventListener("storage", syncSession);
+    return () => { window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession); window.removeEventListener("storage", syncSession); };
   }, []);
 
   const login = async (newToken: string) => {
@@ -63,12 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
     try {
       const currentUser = await authApi.me();
-      setUser(currentUser);
+      if (getStoredToken() !== newToken) return;
+      setAuthError(null); setUser(currentUser); setIsLoading(false);
       router.push("/dashboard");
     } catch (err) {
-      removeStoredToken();
-      setToken(null);
-      setUser(null);
+      if (getStoredToken() !== newToken && getStoredToken() !== null) return;
+      if (err instanceof ApiError && err.status === 401) {
+        removeStoredToken(); setToken(null); setUser(null);
+      }
+      setIsLoading(false);
       throw err;
     }
   };
@@ -76,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     removeStoredToken();
     setToken(null);
-    setUser(null);
+    setUser(null); setAuthError(null); setIsLoading(false);
     router.push("/landing");
   };
 
@@ -98,6 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         isLoading,
+        authError,
+        retryAuth,
         isAuthenticated: !!user,
         login,
         logout,

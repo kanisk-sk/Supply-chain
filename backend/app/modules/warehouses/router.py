@@ -21,11 +21,11 @@ def list_warehouses(
     page: int | None = Query(default=None, ge=0),
     limit: int | None = Query(default=None, ge=0),
     is_active: bool | None = Query(default=None),
-    _user: User = Depends(require_permissions(Permission.WAREHOUSES_READ)),
+    actor: User = Depends(require_permissions(Permission.WAREHOUSES_READ)),
     db=Depends(get_db),
 ) -> dict:
     service = WarehouseService(db)
-    result = service.list(page=page, limit=limit, is_active=is_active)
+    result = service.list(page=page, limit=limit, is_active=is_active, actor=actor)
     resolved_page, resolved_limit = resolve_pagination(page, limit)
     return build_paged_response(
         result["items"],
@@ -36,14 +36,26 @@ def list_warehouses(
     )
 
 
+@router.get("/transfer-destinations", summary="Active warehouse labels for inventory transfers")
+def transfer_destinations(
+    page: int | None = Query(default=None, ge=0),
+    limit: int | None = Query(default=None, ge=0),
+    actor: User = Depends(require_permissions(Permission.INVENTORY_WRITE)),
+    db=Depends(get_db),
+) -> dict:
+    result = WarehouseService(db).transfer_destinations(page=page, limit=limit)
+    resolved_page, resolved_limit = resolve_pagination(page, limit)
+    return build_paged_response(result["items"], page=resolved_page, limit=resolved_limit, total=result["total"], message="Transfer destinations retrieved")
+
+
 @router.get("/{warehouse_id}", summary="Get a single warehouse")
 def get_warehouse(
     warehouse_id: int,
-    _user: User = Depends(require_permissions(Permission.WAREHOUSES_READ)),
+    actor: User = Depends(require_permissions(Permission.WAREHOUSES_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        WarehouseService(db).get(warehouse_id), message="Warehouse retrieved"
+        WarehouseService(db).get(warehouse_id, actor=actor), message="Warehouse retrieved"
     )
 
 

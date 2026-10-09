@@ -16,15 +16,15 @@ export default function ProtectedRoute({
   requiredPermissions = [],
   requiredRoles = [],
 }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated, hasPermission, hasRole } = useAuth();
+  const { user, isLoading, authError, retryAuth, isAuthenticated, hasPermission, hasRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && pathname !== "/login" && pathname !== "/landing") {
+    if (!isLoading && !authError && !isAuthenticated && pathname !== "/login" && pathname !== "/landing") {
       router.push("/landing");
     }
-  }, [isLoading, isAuthenticated, router, pathname]);
+  }, [isLoading, authError, isAuthenticated, router, pathname]);
 
   if (isLoading) {
     return (
@@ -35,6 +35,10 @@ export default function ProtectedRoute({
         </div>
       </div>
     );
+  }
+
+  if (authError) {
+    return <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-50 p-6"><p role="alert">{authError}</p><button type="button" onClick={retryAuth} className="rounded border border-slate-300 bg-white px-4 py-2">Retry session check</button></div>;
   }
 
   if (!isAuthenticated) {

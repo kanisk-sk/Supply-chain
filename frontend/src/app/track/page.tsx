@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
+import { Tilt } from "@/components/core/tilt";
 import { normalizeTrackingNumber, isValidTrackingNumberFormat } from "@/lib/tracking";
 
 // Public page: no ProtectedRoute, no AppLayout, no login required.
@@ -21,7 +22,7 @@ export default function TrackPage() {
       return;
     }
     if (!isValidTrackingNumberFormat(normalized)) {
-      setError("Tracking numbers look like TRK-1A2B3C4D. Please check and try again.");
+      setError("Tracking numbers look like TRK-1A2B3C4D5E6F7890ABCDEF12. Please check and try again.");
       return;
     }
     setError(null);
@@ -47,7 +48,7 @@ export default function TrackPage() {
 
       <main className="relative z-10 flex flex-1 items-center justify-center px-4 pb-12 pt-28 sm:px-8 lg:justify-end lg:px-16 xl:px-32">
         <div className="w-full max-w-lg">
-          <div>
+          <Tilt>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl">
               <Link
                 href="/"
@@ -65,7 +66,7 @@ export default function TrackPage() {
               </h1>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
                 Enter the tracking number shared with you.<br />
-                <span className="text-xs">For example: TRK-1A2B3C4D</span>
+                <span className="text-xs">For example: TRK-1A2B3C4D5E6F7890ABCDEF12</span>
               </p>
 
               {error && (
@@ -84,7 +85,7 @@ export default function TrackPage() {
                     type="text"
                     value={trackingNumber}
                     onChange={(e) => setTrackingNumber(e.target.value)}
-                    placeholder="TRK-________"
+                    placeholder="TRK-…"
                     autoComplete="off"
                     spellCheck={false}
                     className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 font-mono text-sm uppercase text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
@@ -98,7 +99,7 @@ export default function TrackPage() {
                 </button>
               </form>
             </div>
-          </div>
+          </Tilt>
         </div>
       </main>
     </div>

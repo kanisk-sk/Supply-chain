@@ -69,10 +69,17 @@ class ShipmentRepository:
         ).scalars().all()
         return ShipmentListResult(items=items, total=total)
 
-    def get_by_id(self, shipment_id: int) -> Shipment | None:
-        return self.db.execute(
-            select(Shipment).where(Shipment.id == shipment_id)
-        ).scalar_one_or_none()
+    def get_by_id(self, shipment_id: int, *, for_update: bool = False) -> Shipment | None:
+        stmt = select(Shipment).where(Shipment.id == shipment_id)
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def for_order(self, order_id: int, *, for_update: bool = False) -> list[Shipment]:
+        stmt = select(Shipment).where(Shipment.order_id == order_id).order_by(Shipment.id)
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        return list(self.db.execute(stmt).scalars().all())
 
     def get_by_tracking_number(self, tracking_number: str) -> Shipment | None:
         """Fetch a shipment by its public tracking number (exact match)."""
@@ -104,7 +111,7 @@ class ShipmentRepository:
         return [(row.id, row.status, row.expected_delivery_at) for row in rows]
 
     def get_status_rows(
-        self, shipment_ids: Sequence[int]
+        self, shipment_ids: Sequence[int], *, for_update: bool = False
     ) -> dict[int, tuple[ShipmentStatus, datetime | None]]:
         """Batch ``id -> (status, expected_delivery_at)`` for a set of ids.
 
@@ -114,11 +121,10 @@ class ShipmentRepository:
         """
         if not shipment_ids:
             return {}
-        rows = self.db.execute(
-            select(Shipment.id, Shipment.status, Shipment.expected_delivery_at).where(
-                Shipment.id.in_(shipment_ids)
-            )
-        ).all()
+        stmt = select(Shipment.id, Shipment.status, Shipment.expected_delivery_at).where(Shipment.id.in_(shipment_ids)).order_by(Shipment.id)
+        if for_update:
+            stmt = stmt.with_for_update()
+        rows = self.db.execute(stmt).all()
         return {row.id: (row.status, row.expected_delivery_at) for row in rows}
 
     def add(self, shipment: Shipment) -> None:

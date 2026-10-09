@@ -75,6 +75,7 @@ class SupplierService:
     ) -> dict:
         with transaction(self.db):
             supplier = self._get_or_raise(supplier_id)
+            old_value = supplier_payload(supplier)
             changes = payload.model_dump(exclude_unset=True)
 
             if "code" in changes and changes["code"].strip():
@@ -97,7 +98,7 @@ class SupplierService:
                 action="SUPPLIER.UPDATE",
                 entity_type="supplier",
                 entity_id=supplier.id,
-                old_value={"id": supplier.id, "code": supplier.code, "name": supplier.name},
+                old_value=old_value,
                 new_value={
                     "id": supplier.id,
                     "name": supplier.name,

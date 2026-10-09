@@ -26,7 +26,7 @@ router = APIRouter(prefix="/public/tracking", tags=["public-tracking"])
     summary="Public package tracking lookup (no authentication required)",
 )
 def get_public_tracking(
-    tracking_number: str = Path(min_length=1, max_length=32),
+    tracking_number: str = Path(min_length=1, max_length=32, pattern=r"(?i)^TRK-(?:[0-9A-F]{8}|[0-9A-F]{24})$"),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(

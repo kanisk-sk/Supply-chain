@@ -12,8 +12,9 @@ FOR UPDATE, validates availability, decrements stock, and appends a
 reusing :meth:`app.modules.inventory.service.InventoryService.dispatch_stock`.
 A shortage of any line rolls the whole dispatch back (shipment stays PACKED, no
 history, no inventory movement, no audit). The shipment carries the full order
-(no per-shipment line split exists in the schema), so a second dispatch for the
-same order will fail the stock check rather than oversell.
+(no per-shipment line split exists in the schema). An order-level row lock
+serializes shipment creation and dispatch; only one full-order shipment is
+created and existing legacy duplicate shipments cannot both dispatch.
 """
 
 from __future__ import annotations
@@ -22,7 +23,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ConflictError, NotFoundError, ValidationError
+from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.modules.auth.scope import require_warehouse_scope
 from app.common.transactions import transaction
 from app.core.database import utcnow
 from app.modules.alerts.service import AlertService
@@ -91,11 +93,14 @@ class ShipmentService:
             "total": result.total,
         }
 
-    def get(self, shipment_id: int) -> dict:
-        return shipment_payload(self._get_or_raise(shipment_id))
+    def get(self, shipment_id: int, *, actor: User | None = None) -> dict:
+        shipment = self._get_or_raise(shipment_id)
+        require_warehouse_scope(actor, shipment.warehouse_id)
+        return shipment_payload(shipment)
 
-    def history(self, shipment_id: int) -> list[dict]:
-        self._get_or_raise(shipment_id)
+    def history(self, shipment_id: int, *, actor: User | None = None) -> list[dict]:
+        shipment = self._get_or_raise(shipment_id)
+        require_warehouse_scope(actor, shipment.warehouse_id)
         return [history_payload(row) for row in self.repo.list_history(shipment_id)]
 
     def get_public_tracking(self, tracking_number: str) -> dict:
@@ -128,8 +133,10 @@ class ShipmentService:
     # ---- create ----
 
     def create(self, payload: ShipmentCreate, *, actor: User) -> dict:
+        if actor.role == UserRole.WAREHOUSE_MANAGER:
+            raise ForbiddenError("Shipment creation requires supply-chain management")
         with transaction(self.db):
-            order = self.orders.get_by_id(payload.order_id)
+            order = self.orders.get_by_id(payload.order_id, for_update=True)
             if order is None:
                 raise NotFoundError(f"Order {payload.order_id} not found")
             if order.status != OrderStatus.CONFIRMED:
@@ -141,7 +148,15 @@ class ShipmentService:
                     },
                 )
 
+            if self.repo.for_order(order.id, for_update=True):
+                raise ConflictError("An order can have only one full-order shipment")
+            warehouse_id = payload.warehouse_id
+            if warehouse_id is not None:
+                warehouse = self.warehouses.get_by_id(warehouse_id)
+                if warehouse is None or not warehouse.is_active:
+                    raise ValidationError("Shipment warehouse must exist and be active")
             shipment = Shipment(
+                warehouse_id=warehouse_id,
                 order_id=order.id,
                 created_by=actor.id,
                 expected_delivery_at=payload.expected_delivery_at,
@@ -196,19 +211,27 @@ class ShipmentService:
     ) -> dict:
         with transaction(self.db):
             shipment = self._get_or_raise(shipment_id)
-            order = self.orders.get_by_id(shipment.order_id)
+            # All shipment/order mutations lock order first, then shipment.
+            order = self.orders.get_by_id(shipment.order_id, for_update=True)
+            order_shipments = self.repo.for_order(shipment.order_id, for_update=True)
+            shipment = next(s for s in order_shipments if s.id == shipment_id)
             if order is None:
                 raise NotFoundError(f"Order {shipment.order_id} not found")
 
-            # Raises InvalidStateTransitionError (409) when disallowed.
-            shipment_state_machine.transition(
-                shipment.status, ShipmentStatus.IN_TRANSIT
-            )
+            require_warehouse_scope(actor, payload.warehouse_id)
+            require_warehouse_scope(actor, shipment.warehouse_id)
+            if order.status != OrderStatus.CONFIRMED:
+                raise ConflictError("Only confirmed orders can be dispatched")
+            if any(s.id != shipment.id and s.status != ShipmentStatus.PACKED for s in order_shipments):
+                raise ConflictError("Order has already been dispatched")
+            shipment_state_machine.transition(shipment.status, ShipmentStatus.IN_TRANSIT)
 
             warehouse = self.warehouses.get_by_id(payload.warehouse_id)
             if warehouse is None:
                 raise NotFoundError(f"Warehouse {payload.warehouse_id} not found")
 
+            if not warehouse.is_active:
+                raise ValidationError("Dispatch warehouse must be active")
             # Stock-out per line item, in product order so concurrent dispatches
             # acquire row locks in the same deterministic sequence.
             consumed = []
@@ -267,7 +290,11 @@ class ShipmentService:
 
     def deliver(self, shipment_id: int, *, actor: User) -> dict:
         with transaction(self.db):
-            shipment = self._get_or_raise(shipment_id)
+            existing = self._get_or_raise(shipment_id)
+            self.orders.get_by_id(existing.order_id, for_update=True)
+            locked_shipments = self.repo.for_order(existing.order_id, for_update=True)
+            shipment = next(s for s in locked_shipments if s.id == shipment_id)
+            require_warehouse_scope(actor, shipment.warehouse_id)
 
             # Raises InvalidStateTransitionError (409) when disallowed.
             shipment_state_machine.transition(

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import (
@@ -21,7 +20,6 @@ from app.common.exceptions import (
 from app.common.transactions import transaction
 from app.modules.alerts.service import AlertService
 from app.modules.audit_logs.service import AuditLogService
-from app.modules.inventory.models import Inventory
 from app.modules.products.models import Product
 from app.modules.products.repositories import ProductRepository
 from app.modules.products.schemas import (
@@ -31,7 +29,6 @@ from app.modules.products.schemas import (
 )
 from app.modules.suppliers.repositories import SupplierRepository
 from app.modules.users.models import User
-from app.modules.warehouses.models import Warehouse
 
 
 class ProductService:
@@ -100,7 +97,10 @@ class ProductService:
         self, product_id: int, payload: ProductUpdate, *, actor: User
     ) -> dict:
         with transaction(self.db):
-            product = self._get_or_raise(product_id)
+            product = self.repo.get_by_id(product_id, for_update=True)
+            if product is None:
+                raise NotFoundError(f"Product {product_id} not found")
+            old_value = product_payload(product)
             changes = payload.model_dump(exclude_unset=True)
 
             threshold_changed = "reorder_threshold" in changes
@@ -132,7 +132,7 @@ class ProductService:
                 action="PRODUCT.UPDATE",
                 entity_type="product",
                 entity_id=product.id,
-                old_value={"id": product.id, "sku": product.sku, "name": product.name},
+                old_value=old_value,
                 new_value={
                     "id": product.id,
                     "sku": product.sku,
@@ -155,16 +155,7 @@ class ProductService:
         threshold: rows now below it re-open/refresh the product's alert, and
         the alert resolves once every row is at/above it.
         """
-        rows = self.db.execute(
-            select(Inventory.quantity, Warehouse.code)
-            .join(Warehouse, Warehouse.id == Inventory.warehouse_id)
-            .where(Inventory.product_id == product_id)
-        ).all()
-        AlertService(self.db).reconcile_low_stock_threshold_change(
-            product_id=product_id,
-            threshold=threshold,
-            stocks=[(row.quantity, row.code) for row in rows],
-        )
+        AlertService(self.db).reconcile_product_low_stock(product_id=product_id)
 
     @staticmethod
     def _validate_threshold(threshold: Decimal) -> None:

@@ -6,10 +6,12 @@ column is internal and must not be serialized to clients.
 
 from __future__ import annotations
 
+from app.common.timestamps import iso_utc
+
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import field_serializer, BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.modules.users.models import UserRole
 
@@ -22,6 +24,7 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     role: UserRole = UserRole.ANALYST
     is_active: bool = True
+    warehouse_id: int | None = Field(default=None, gt=0)
 
     @field_validator("name")
     @classmethod
@@ -38,6 +41,8 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def _password_strength(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be at most 72 UTF-8 bytes")
         if not re.search(r"[A-Za-z]", value) or not re.search(r"\d", value):
             raise ValueError(
                 "password must contain at least one letter and one digit"
@@ -53,6 +58,15 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=128)
     role: UserRole | None = None
     is_active: bool | None = None
+    warehouse_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _required_fields_not_null(cls, data):
+        if isinstance(data, dict) and any(data.get(k) is None for k in ("name", "email", "password", "role", "is_active") if k in data):
+            raise ValueError("Required user fields cannot be null")
+        return data
+
 
     @field_validator("name")
     @classmethod
@@ -71,6 +85,8 @@ class UserUpdate(BaseModel):
     def _password_strength(cls, value: str | None) -> str | None:
         if value is None:
             return None
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be at most 72 UTF-8 bytes")
         if not re.search(r"[A-Za-z]", value) or not re.search(r"\d", value):
             raise ValueError(
                 "password must contain at least one letter and one digit"
@@ -93,6 +109,10 @@ class UserRead(BaseModel):
     @classmethod
     def from_user(cls, user) -> "UserRead":
         return cls.model_validate(user)
+
+    @field_serializer('created_at', 'updated_at')
+    def _utc_json(self, value):
+        return iso_utc(value)
 
 
 def public_user_payload(user) -> dict:

@@ -59,10 +59,11 @@ class OrderRepository:
         ).scalars().all()
         return OrderListResult(items=items, total=total)
 
-    def get_by_id(self, order_id: int) -> Order | None:
-        return self.db.execute(
-            select(Order).where(Order.id == order_id)
-        ).scalar_one_or_none()
+    def get_by_id(self, order_id: int, *, for_update: bool = False) -> Order | None:
+        stmt = select(Order).where(Order.id == order_id)
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        return self.db.execute(stmt).scalar_one_or_none()
 
     def add(self, order: Order) -> None:
         self.db.add(order)

@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.common.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.common.transactions import transaction
 from app.core.security import hash_password
 from app.modules.audit_logs.service import AuditLogService
 from app.modules.users.models import User, UserRole
 from app.modules.users.repositories import UserRepository
 from app.modules.users.schemas import UserCreate, UserUpdate, public_user_payload
+from app.modules.warehouses.repositories import WarehouseRepository
 
 
 class UserService:
@@ -59,12 +60,14 @@ class UserService:
                 raise ConflictError(
                     f"User with email {payload_dict['email']!r} already exists"
                 )
+            self._validate_assignment(payload_dict["role"], payload_dict["warehouse_id"])
             user = User(
                 name=payload_dict["name"],
                 email=payload_dict["email"],
                 password_hash=hash_password(payload_dict["password"]),
                 role=payload_dict["role"],
                 is_active=payload_dict["is_active"],
+                warehouse_id=payload_dict["warehouse_id"],
             )
             self.repo.add(user)
             self.audit.record(
@@ -78,6 +81,7 @@ class UserService:
                     "email": user.email,
                     "role": user.role.value,
                     "is_active": user.is_active,
+                    "warehouse_id": user.warehouse_id,
                 },
             )
             return public_user_payload(user)
@@ -100,13 +104,20 @@ class UserService:
                     "Cannot change your own role or active status"
                 )
 
+            next_role = changes.get("role", user.role)
+            next_warehouse = changes.get("warehouse_id", user.warehouse_id)
+            if next_role != UserRole.WAREHOUSE_MANAGER and "warehouse_id" not in changes:
+                next_warehouse = None
+            self._validate_assignment(next_role, next_warehouse)
             old_snapshot = {
                 "id": user.id,
                 "name": user.name,
                 "email": user.email,
                 "role": user.role.value,
                 "is_active": user.is_active,
+                "warehouse_id": user.warehouse_id,
             }
+            user.warehouse_id = next_warehouse
 
             if "email" in changes:
                 email = changes["email"]
@@ -138,9 +149,20 @@ class UserService:
                     "email": user.email,
                     "role": user.role.value,
                     "is_active": user.is_active,
+                    "warehouse_id": user.warehouse_id,
                 },
             )
             return public_user_payload(user)
+
+    def _validate_assignment(self, role: UserRole, warehouse_id: int | None) -> None:
+        if role == UserRole.WAREHOUSE_MANAGER and warehouse_id is None:
+            raise ValidationError("Warehouse managers must be assigned a warehouse")
+        if role != UserRole.WAREHOUSE_MANAGER and warehouse_id is not None:
+            raise ValidationError("Only warehouse managers can have a warehouse assignment")
+        if warehouse_id is not None:
+            warehouse = WarehouseRepository(self.db).get_by_id(warehouse_id)
+            if warehouse is None or not warehouse.is_active:
+                raise ValidationError("Assigned warehouse must exist and be active")
 
     def _get_or_raise(self, user_id: int) -> User:
         user = self.repo.get_by_id(user_id)

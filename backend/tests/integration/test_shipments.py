@@ -21,6 +21,7 @@ from app.modules.inventory.models import (
 from app.modules.orders.models import Order, OrderItem
 from app.modules.shipments.models import Shipment, ShipmentStatusHistory
 from app.modules.users.models import User, UserRole
+from app.state_machines.order import OrderStatus
 from tests.conftest import login
 
 
@@ -75,10 +76,10 @@ def _confirmed_order(api_client, ctx, quantity=10) -> dict:
 
 
 def _create_shipment(api_client, ctx, order_id, expected=None):
-    body = {"order_id": order_id}
+    body = {"order_id": order_id, "warehouse_id": ctx["warehouse"]["id"]}
     if expected is not None:
         body["expected_delivery_at"] = expected.isoformat()
-    return api_client.post("/api/v1/shipments", json=body, headers=ctx["wh"])
+    return api_client.post("/api/v1/shipments", json=body, headers=ctx["scm"])
 
 
 def _dispatch(api_client, ctx, shipment_id, expected=None):
@@ -152,7 +153,8 @@ class TestShipmentCreation:
         ctx = _setup(api_client, seed, catalog)
         order = _confirmed_order(api_client, ctx)
         first = _create_shipment(api_client, ctx, order["id"])
-        second = _create_shipment(api_client, ctx, order["id"])
+        second_order = _confirmed_order(api_client, ctx)
+        second = _create_shipment(api_client, ctx, second_order["id"])
         assert first.status_code == 201 and second.status_code == 201
         assert (
             first.json()["data"]["shipment_number"]
@@ -207,7 +209,7 @@ class TestDispatch:
         response = _dispatch(api_client, ctx, shipment["id"])
         assert response.status_code == 200
         data = response.json()["data"]
-        assert data["expected_delivery_at"] == future.isoformat()
+        assert data["expected_delivery_at"] == future.isoformat() + "Z"
 
     @pytest.mark.db
     def test_dispatch_twice_rejected_409(self, api_client, seed, catalog):
@@ -233,7 +235,7 @@ class TestDispatch:
         response = api_client.post(
             f"/api/v1/shipments/{shipment['id']}/dispatch",
             json={"warehouse_id": 999999},
-            headers=ctx["wh"],
+            headers=ctx["scm"],
         )
         assert response.status_code == 404
         with session_factory() as db:
@@ -338,7 +340,7 @@ class TestDeliver:
             row = db.get(Shipment, shipment["id"])
             assert row.actual_delivery_at is not None
             received_at = datetime.fromisoformat(data["actual_delivery_at"])
-            assert received_at <= datetime.now()
+            assert received_at.replace(tzinfo=None) <= datetime.utcnow()
             history = db.execute(select(ShipmentStatusHistory).order_by(ShipmentStatusHistory.id)).scalars().all()
             assert [h.status.value for h in history] == ["PACKED", "IN_TRANSIT", "DELIVERED"]
             audits = db.execute(
@@ -457,7 +459,7 @@ class TestDelayed:
         past = datetime.now() - timedelta(hours=6)
         future = datetime.now() + timedelta(days=1)
         s1 = _create_shipment(api_client, ctx, order["id"], expected=past).json()["data"]
-        s2 = _create_shipment(api_client, ctx, order["id"], expected=future).json()["data"]
+        s2 = _create_shipment(api_client, ctx, _confirmed_order(api_client, ctx, quantity=5)["id"], expected=future).json()["data"]
 
         # Dispatch both so they have warehouse_id for WAREHOUSE_MANAGER scoping
         _dispatch(api_client, ctx, s1["id"]).json()["data"]
@@ -543,7 +545,7 @@ class TestServiceTransactionality:
             actor = db.get(User, seed.user("txs@actor.com")["id"])
 
         with session_factory() as db:
-            order = Order(created_by=actor.id, order_number="ORD-TXS-0001")
+            order = Order(created_by=actor.id, order_number="ORD-TXS-0001", status=OrderStatus.CONFIRMED)
             db.add(order)
             db.flush()
             order.order_number = f"ORD-{order.id:08d}"

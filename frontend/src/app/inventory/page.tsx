@@ -11,7 +11,8 @@ import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { useAuth } from "@/context/AuthContext";
 import {
   inventoryApi,
-  productsApi,
+  listAllPages,
+  inventoryProductChoices,
   warehousesApi,
 } from "@/lib/api";
 import {
@@ -40,6 +41,7 @@ export default function InventoryPage() {
   const canReadTransactions = hasPermission("inventory:transactions:read");
   const canReadWarehouses = hasPermission("warehouses:read");
 
+  const [destinations, setDestinations] = useState<Array<Pick<Warehouse, "id" | "code" | "name">>>([]);
   const [activeTab, setActiveTab] = useState<"stock" | "transactions">("stock");
 
   // Stock State
@@ -86,19 +88,18 @@ export default function InventoryPage() {
   const fetchProductsAndWarehouses = useCallback(async () => {
     try {
       const [prodRes, whRes] = await Promise.all([
-        canReadProducts
-          ? productsApi.list({ limit: 100 })
-          : Promise.resolve({ data: [] as Product[] }),
+        inventoryProductChoices(canReadProducts),
         canReadWarehouses
-          ? warehousesApi.list({ limit: 100 })
-          : Promise.resolve({ data: [] as Warehouse[] }),
+          ? listAllPages<Warehouse>(page => warehousesApi.list({ page, limit: 100 }))
+          : Promise.resolve([] as Warehouse[]),
       ]);
-      setProducts(prodRes.data || []);
-      setWarehouses(whRes.data || []);
+      setProducts(prodRes);
+      setWarehouses(whRes);
+      if (canWriteInventory) setDestinations(await listAllPages(page => warehousesApi.transferDestinations(page)));
     } catch (err) {
-      console.error("Failed to load products/warehouses:", err);
+      setFeedback({ type: "error", message: "Could not load product and warehouse choices. Refresh the page to retry." });
     }
-  }, [canReadProducts, canReadWarehouses]);
+  }, [canReadProducts, canReadWarehouses, canWriteInventory]);
 
   const loadStock = useCallback(async (page = 1, limit = 10) => {
     setStockLoading(true);
@@ -679,7 +680,7 @@ export default function InventoryPage() {
                     className="mt-1 block w-full rounded-md border border-slate-300 p-2 text-sm bg-white text-slate-700 focus:border-indigo-500 focus:outline-none"
                   >
                     <option value="">Select destination</option>
-                    {warehouses.map((w) => (
+                    {destinations.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.code} - {w.name}
                       </option>

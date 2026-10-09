@@ -10,7 +10,7 @@ import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { useAuth } from "@/context/AuthContext";
-import { ordersApi, productsApi } from "@/lib/api";
+import { ordersApi, productsApi, listAllPages } from "@/lib/api";
 import { Order, Product, PaginationMeta, OrderStatus } from "@/types/api";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Plus, Filter, Trash2 } from "lucide-react";
@@ -58,10 +58,10 @@ export default function OrdersPage() {
 
   const loadProducts = async () => {
     try {
-      const res = await productsApi.list({ limit: 100, is_active: true });
-      setProducts(res.data || []);
+      const choices = await listAllPages<Product>(page => productsApi.list({ page, limit: 100, is_active: true }));
+      setProducts(choices);
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      setFeedback({ type: "error", message: "Could not load products. Close and reopen the form to retry." });
     }
   };
 

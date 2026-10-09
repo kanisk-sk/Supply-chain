@@ -14,14 +14,14 @@ TRACKING_NUMBER_PREFIX = "TRK-"
 
 
 def generate_tracking_number() -> str:
-    """New random public tracking identifier (``TRK-XXXXXXXX``).
+    """New 96-bit random public tracking identifier (legacy values stay stable).
 
     Random and non-sequential (unlike the deterministic internal
     ``shipment_number``) so it is safe to share with end users. Used as the
     column default so every insert path yields a valid value; the creation
     service additionally guarantees uniqueness before insert.
     """
-    return f"{TRACKING_NUMBER_PREFIX}{secrets.token_hex(4).upper()}"
+    return f"{TRACKING_NUMBER_PREFIX}{secrets.token_hex(12).upper()}"
 
 
 class Shipment(TimestampMixin, Base):

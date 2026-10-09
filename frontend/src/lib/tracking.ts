@@ -1,6 +1,6 @@
 import { PublicTrackingEvent } from "@/types/api";
 
-export const TRACKING_NUMBER_PATTERN = /^TRK-[0-9A-F]{8}$/;
+export const TRACKING_NUMBER_PATTERN = /^TRK-(?:[0-9A-F]{8}|[0-9A-F]{24})$/;
 
 const LIFECYCLE_ORDER = ["PACKED", "IN_TRANSIT", "DELIVERED"];
 

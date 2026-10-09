@@ -8,8 +8,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import Modal from "@/components/common/Modal";
 import { useAuth } from "@/context/AuthContext";
-import { ordersApi, shipmentsApi } from "@/lib/api";
-import { Order, Shipment } from "@/types/api";
+import { ordersApi, shipmentsApi, warehousesApi, listAllPages } from "@/lib/api";
+import { Order, Shipment, Warehouse } from "@/types/api";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -23,9 +23,9 @@ import {
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const canWriteOrders = hasPermission("orders:write");
-  const canWriteShipments = hasPermission("shipments:write");
+  const canWriteShipments = hasPermission("shipments:write") && hasRole("ADMIN", "SUPPLY_CHAIN_MANAGER");
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +34,8 @@ export default function OrderDetailsPage() {
 
   // Create Shipment Modal
   const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
+  const [warehouseChoices, setWarehouseChoices] = useState<Warehouse[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
 
   const loadOrder = useCallback(async () => {
@@ -99,6 +101,13 @@ export default function OrderDetailsPage() {
     }
   };
 
+  useEffect(() => {
+    if (!shipmentModalOpen || !canWriteShipments) return;
+    listAllPages<Warehouse>(page => warehousesApi.list({ page, limit: 100, is_active: true }))
+      .then(setWarehouseChoices)
+      .catch(() => setFeedback({ type: "error", message: "Could not load warehouse assignments. Close and reopen the form to retry." }));
+  }, [shipmentModalOpen, canWriteShipments]);
+
   const handleCreateShipment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!order) return;
@@ -107,6 +116,7 @@ export default function OrderDetailsPage() {
     try {
       const newShipment = await shipmentsApi.create({
         order_id: order.id,
+        warehouse_id: selectedWarehouse ? Number(selectedWarehouse) : null,
         expected_delivery_at: expectedDelivery ? new Date(expectedDelivery).toISOString() : null,
       });
       setFeedback({
@@ -354,6 +364,7 @@ export default function OrderDetailsPage() {
             title={`Create Shipment for Order ${order.order_number}`}
           >
             <form onSubmit={handleCreateShipment} className="space-y-4">
+              <label className="block text-xs font-semibold text-slate-700">Assigned warehouse<select value={selectedWarehouse} onChange={event => setSelectedWarehouse(event.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 p-2"><option value="">Unassigned draft (admin / supply chain access only)</option>{warehouseChoices.map(warehouse => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} — {warehouse.name}</option>)}</select></label>
               <div>
                 <label className="block text-xs font-semibold text-slate-700">
                   Expected Delivery Date & Time (Optional)

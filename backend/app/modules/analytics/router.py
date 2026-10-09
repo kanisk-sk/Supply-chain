@@ -67,9 +67,10 @@ def analytics_suppliers(
 
 @router.get("/bottlenecks", summary="Time spent in each shipment lifecycle stage")
 def analytics_bottlenecks(
+    days: int = Query(default=365, ge=1, le=365),
     _user: User = Depends(require_permissions(Permission.ANALYTICS_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        AnalyticsService(db).bottlenecks(), message="Bottleneck analytics"
+        AnalyticsService(db).bottlenecks(days=days), message="Bottleneck analytics"
     )

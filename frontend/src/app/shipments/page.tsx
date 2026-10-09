@@ -10,15 +10,15 @@ import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { useAuth } from "@/context/AuthContext";
-import { shipmentsApi, ordersApi } from "@/lib/api";
-import { Shipment, Order, PaginationMeta, ShipmentStatus } from "@/types/api";
+import { shipmentsApi, ordersApi, warehousesApi, listAllPages } from "@/lib/api";
+import { Shipment, Order, Warehouse, PaginationMeta, ShipmentStatus } from "@/types/api";
 import { useRouter } from "next/navigation";
 import { Truck, Plus, Filter, AlertTriangle } from "lucide-react";
 
 export default function ShipmentsPage() {
   const router = useRouter();
-  const { hasPermission } = useAuth();
-  const canWriteShipments = hasPermission("shipments:write");
+  const { hasPermission, hasRole } = useAuth();
+  const canWriteShipments = hasPermission("shipments:write") && hasRole("ADMIN", "SUPPLY_CHAIN_MANAGER");
 
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit: 10, total: 0, pages: 1 });
@@ -30,6 +30,8 @@ export default function ShipmentsPage() {
 
   // Create Shipment Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [warehouseChoices, setWarehouseChoices] = useState<Warehouse[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [confirmedOrders, setConfirmedOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [expectedDelivery, setExpectedDelivery] = useState<string>("");
@@ -61,16 +63,18 @@ export default function ShipmentsPage() {
 
   const loadConfirmedOrders = async () => {
     try {
-      const res = await ordersApi.list({ status: "CONFIRMED", limit: 100 });
-      setConfirmedOrders(res.data || []);
+      const choices = await listAllPages<Order>(page => ordersApi.list({ page, status: "CONFIRMED", limit: 100 }));
+      setConfirmedOrders(choices);
+      setWarehouseChoices(await listAllPages<Warehouse>(page => warehousesApi.list({ page, limit: 100, is_active: true })));
     } catch (err) {
-      console.error("Failed to load confirmed orders:", err);
+      setFeedback({ type: "error", message: "Could not load confirmed orders. Close and reopen the form to retry." });
     }
   };
 
   const handleOpenCreateModal = () => {
     loadConfirmedOrders();
     setSelectedOrderId("");
+    setSelectedWarehouse("");
     setExpectedDelivery("");
     setCreateModalOpen(true);
   };
@@ -87,6 +91,7 @@ export default function ShipmentsPage() {
     try {
       const newShipment = await shipmentsApi.create({
         order_id: Number(selectedOrderId),
+        warehouse_id: selectedWarehouse ? Number(selectedWarehouse) : null,
         expected_delivery_at: expectedDelivery ? new Date(expectedDelivery).toISOString() : null,
       });
       setFeedback({
@@ -268,6 +273,7 @@ export default function ShipmentsPage() {
                 )}
               </div>
 
+              <label className="block text-xs font-semibold text-slate-700">Assigned warehouse<select value={selectedWarehouse} onChange={event => setSelectedWarehouse(event.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 p-2"><option value="">Unassigned draft (admin / supply chain access only)</option>{warehouseChoices.map(warehouse => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} — {warehouse.name}</option>)}</select></label>
               <div>
                 <label className="block text-xs font-semibold text-slate-700">
                   Expected Delivery Date & Time (Optional)

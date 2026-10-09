@@ -26,14 +26,14 @@ class TestUserCRUD:
                 "name": "Jane Doe",
                 "email": "jane@example.com",
                 "password": "Sup3rsecret!",
-                "role": "WAREHOUSE_MANAGER",
+                "role": "ANALYST",
             },
             headers=headers,
         )
         assert response.status_code == 201
         data = response.json()["data"]
         assert data["email"] == "jane@example.com"
-        assert data["role"] == "WAREHOUSE_MANAGER"
+        assert data["role"] == "ANALYST"
         assert data["is_active"] is True
         assert "password" not in str(data)
 

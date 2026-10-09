@@ -10,7 +10,7 @@ import Modal from "@/components/common/Modal";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { useAuth } from "@/context/AuthContext";
-import { productsApi, suppliersApi } from "@/lib/api";
+import { productsApi, suppliersApi, listAllPages } from "@/lib/api";
 import { Product, Supplier, PaginationMeta } from "@/types/api";
 import { Package, Plus, Edit2, Filter } from "lucide-react";
 
@@ -44,10 +44,10 @@ export default function ProductsPage() {
 
   const loadSuppliers = async () => {
     try {
-      const res = await suppliersApi.list({ limit: 100 });
-      setSuppliers(res.data || []);
+      const choices = await listAllPages<Supplier>(page => suppliersApi.list({ page, limit: 100 }));
+      setSuppliers(choices);
     } catch (err) {
-      console.error("Failed to load suppliers:", err);
+      setFeedback({ type: "error", message: "Could not load suppliers. Refresh the page to retry." });
     }
   };
 

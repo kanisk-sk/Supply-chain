@@ -17,11 +17,14 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.common.handlers import register_exception_handlers
 from app.common.responses import build_success_response
 from app.core.config import settings
-from app.core.database import check_database_connectivity
+from app.core.database import check_database_connectivity, SessionLocal
+from app.core.logging import configure_logging
+from app.middleware.production import ProductionMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +64,15 @@ def _scheduler_thread(stop_event: threading.Event) -> threading.Thread:
     return thread
 
 
-def create_app() -> FastAPI:
+def create_app(*, rate_limit_session_factory=None) -> FastAPI:
+    configure_logging(settings.LOG_LEVEL)
     lifespan_stop_event: threading.Event | None = None
     lifespan_thread: threading.Thread | None = None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal lifespan_stop_event, lifespan_thread
+        logger.info("Application started")
         if settings.SCHEDULER_ENABLED:
             lifespan_stop_event = threading.Event()
             lifespan_thread = _scheduler_thread(lifespan_stop_event)
@@ -93,27 +98,43 @@ def create_app() -> FastAPI:
                         "alerts on next start.",
                         lifespan_conf,
                     )
+            logger.info("Application stopped")
 
     app = FastAPI(
         title=APP_TITLE,
         description=APP_DESCRIPTION,
         version="0.4.0",
         lifespan=lifespan,
-        openapi_url="/openapi.json",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        openapi_url=None if settings.is_production else "/openapi.json",
+        docs_url=None if settings.is_production else "/docs",
+        redoc_url=None if settings.is_production else "/redoc",
     )
 
+    app.add_middleware(ProductionMiddleware, session_factory=rate_limit_session_factory or SessionLocal)
     allowed_origins = settings.cors_origins_list
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        expose_headers=["X-Request-ID", "Retry-After"],
     )
 
     register_exception_handlers(app)
+
+    @app.get("/live", tags=["system"], summary="Process liveness")
+    def live():
+        return build_success_response({"status": "ok"})
+
+    @app.get("/ready", tags=["system"], summary="Database readiness")
+    def ready():
+        try:
+            check_database_connectivity()
+            return build_success_response({"status": "ok", "database": "ok"})
+        except Exception as exc:
+            logger.error("Readiness database probe failed", extra={"error_type": type(exc).__name__})
+            return JSONResponse(build_success_response({"status": "unavailable", "database": "error"}), status_code=503)
 
     @app.get("/health", tags=["system"], summary="Health check")
     def health() -> dict:

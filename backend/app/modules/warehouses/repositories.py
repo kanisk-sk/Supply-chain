@@ -27,8 +27,11 @@ class WarehouseRepository:
         page: int | None,
         limit: int | None,
         is_active: bool | None = None,
+        warehouse_id: int | None = None,
     ) -> WarehouseListResult:
         stmt: Select[tuple[Warehouse]] = select(Warehouse)
+        if warehouse_id is not None:
+            stmt = stmt.where(Warehouse.id == warehouse_id)
         if is_active is not None:
             stmt = stmt.where(Warehouse.is_active == is_active)
         total = count_total(self.db, stmt, Warehouse.id)

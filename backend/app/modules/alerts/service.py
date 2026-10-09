@@ -26,11 +26,11 @@ from collections.abc import Callable, Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.core.database import utcnow
+from app.common.timestamps import iso_utc
 from app.modules.alerts.models import Alert, AlertSeverity, AlertType
 from app.modules.alerts.repositories import AlertRepository
 from app.modules.alerts.schemas import alert_payload
@@ -73,16 +73,39 @@ class AlertService:
             is_resolved=is_resolved,
             warehouse_id=warehouse_id,
         )
+        local_stocks = None
+        if actor is not None and actor.role == UserRole.WAREHOUSE_MANAGER:
+            local_stocks = self.repo.local_low_stocks(
+                [a.entity_id for a in result.items if a.type == AlertType.LOW_STOCK],
+                actor.warehouse_id,
+            )
         return {
-            "items": [alert_payload(a) for a in result.items],
+            "items": [self._scoped_payload(a, actor, local_stocks=local_stocks, scoped=True) for a in result.items],
             "total": result.total,
         }
 
-    def get(self, alert_id: int) -> dict:
+    def get(self, alert_id: int, *, actor: User | None = None) -> dict:
         alert = self.repo.get_by_id(alert_id)
         if alert is None:
             raise NotFoundError(f"Alert {alert_id} not found")
-        return alert_payload(alert)
+        return self._scoped_payload(alert, actor)
+
+    def _scoped_payload(self, alert: Alert, actor: User | None, *, local_stocks=None, scoped=False) -> dict:
+        payload = alert_payload(alert)
+        if actor is None or actor.role != UserRole.WAREHOUSE_MANAGER:
+            return payload
+        if actor.warehouse_id is None:
+            raise ForbiddenError("Warehouse manager has no assigned warehouse")
+        if alert.type == AlertType.LOW_STOCK:
+            stock = (local_stocks.get(alert.entity_id) if local_stocks is not None
+                     else self.repo.local_low_stock(alert.entity_id, actor.warehouse_id))
+            if alert.is_resolved or stock is None:
+                raise ForbiddenError("Alert is outside your warehouse scope")
+            payload["severity"] = (AlertSeverity.CRITICAL if stock.quantity == 0 else AlertSeverity.WARNING).value
+            payload["message"] = f"Stock below reorder threshold at warehouse {stock.code} (quantity={stock.quantity})"
+        elif not scoped and not self.repo.shipment_in_warehouse(alert.entity_id, actor.warehouse_id):
+            raise ForbiddenError("Alert is outside your warehouse scope")
+        return payload
 
     # ---- reactive reducers ----
 
@@ -97,36 +120,24 @@ class AlertService:
     ) -> None:
         """Create or resolve the LOW_STOCK alert for a product after a change.
 
-        ``product_above_threshold`` lets callers that already know the whole
-        product is at/above the threshold skip the extra scan; when omitted it
-        is derived from the inventory rows.
+        Legacy write-path arguments are accepted for compatibility; the current
+        persisted inventory across all warehouses determines the condition,
+        severity and source so one touched site cannot hide a worse site.
         """
-        below = quantity < threshold
-        if below:
-            self._ensure_alert(
-                alert_type=AlertType.LOW_STOCK,
-                severity=(
-                    AlertSeverity.CRITICAL
-                    if quantity == 0
-                    else AlertSeverity.WARNING
-                ),
-                entity_type="product",
-                entity_id=product_id,
-                message=(
-                    f"Stock below reorder threshold at warehouse "
-                    f"{warehouse_code} (quantity={quantity})"
-                ),
-            )
-        else:
-            if product_above_threshold is None:
-                min_quantity = self.repo.product_min_quantity(product_id)
-                product_above_threshold = (
-                    min_quantity is None or min_quantity >= threshold
-                )
-            if product_above_threshold:
-                self._resolve_open(
-                    AlertType.LOW_STOCK, "product", product_id
-                )
+        self.reconcile_product_low_stock(product_id=product_id)
+
+    def reconcile_product_low_stock(self, *, product_id: int) -> None:
+        self.db.flush()
+        lowest = self.repo.lowest_product_stock(product_id)
+        if lowest is None or lowest.quantity >= lowest.reorder_threshold:
+            self._resolve_open(AlertType.LOW_STOCK, "product", product_id)
+            return
+        self._ensure_alert(
+            alert_type=AlertType.LOW_STOCK,
+            severity=AlertSeverity.CRITICAL if lowest.quantity == 0 else AlertSeverity.WARNING,
+            entity_type="product", entity_id=product_id,
+            message=f"Stock below reorder threshold at warehouse {lowest.code} (quantity={lowest.quantity})",
+        )
 
     def reconcile_low_stock_threshold_change(
         self,
@@ -137,25 +148,10 @@ class AlertService:
     ) -> None:
         """Reconcile LOW_STOCK after a ``reorder_threshold`` update.
 
-        ``stocks`` is ``(quantity, warehouse_code)`` for every inventory row of
-        the product. A row now below the new threshold re-opens (or refreshes)
-        the product's alert — using the most severe (lowest) row for the
-        severity/message; when every row is at/above the threshold open alerts
-        resolve.
+        Legacy arguments remain accepted; reconcile from current persisted
+        rows after the caller has updated and flushed the product threshold.
         """
-        if not stocks:
-            self._resolve_open(AlertType.LOW_STOCK, "product", product_id)
-            return
-        lowest = min(stocks, key=lambda stock: stock[0])
-        if lowest[0] < threshold:
-            self.reconcile_low_stock(
-                product_id=product_id,
-                quantity=lowest[0],
-                threshold=threshold,
-                warehouse_code=lowest[1],
-            )
-        else:
-            self._resolve_open(AlertType.LOW_STOCK, "product", product_id)
+        self.reconcile_product_low_stock(product_id=product_id)
 
     def reconcile_shipment_overdue(
         self,
@@ -187,7 +183,7 @@ class AlertService:
                 entity_id=shipment_id,
                 message=(
                     f"Shipment is overdue (expected delivery at "
-                    f"{expected_delivery_at.isoformat()})"
+                    f"{iso_utc(expected_delivery_at)})"
                 ),
             )
         else:
@@ -212,21 +208,8 @@ class AlertService:
         an existing open alert is refreshed to the latest severity/message so a
         stale severity never survives (e.g. WARNING → CRITICAL → WARNING).
         """
-        stmt = mysql_insert(Alert).values(
-            type=alert_type,
-            severity=severity,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            message=message,
-            is_resolved=False,
-            active_key=self.repo.unresolve_key(alert_type, entity_type, entity_id),
-            created_at=utcnow(),
-        )
-        stmt = stmt.on_duplicate_key_update(
-            severity=stmt.inserted.severity,
-            message=stmt.inserted.message,
-        )
-        self.db.execute(stmt)
+        self.repo.ensure_alert(alert_type=alert_type, severity=severity,
+                               entity_type=entity_type, entity_id=entity_id, message=message)
 
     def resolve(
         self, *, alert_type: AlertType, entity_type: str, entity_id: int

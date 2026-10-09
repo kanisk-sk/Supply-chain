@@ -25,6 +25,7 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<InventoryTransaction[]>([]);
   const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
+  const [lowStockCount, setLowStockCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
   const [inTransitCount, setInTransitCount] = useState(0);
   const [delayedCount, setDelayedCount] = useState(0);
@@ -53,7 +54,7 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
 
       if (wh.status === "fulfilled") setWarehouse(wh.value);
       if (inv.status === "fulfilled") setWarehouseInventory(inv.value.data || []);
-      if (low.status === "fulfilled") setLowStockItems(low.value.data || []);
+      if (low.status === "fulfilled") { setLowStockItems(low.value.data || []); setLowStockCount(low.value.meta.total); }
       if (shp.status === "fulfilled") setRecentShipments(shp.value.data || []);
       if (tx.status === "fulfilled") setRecentTransactions(tx.value.data || []);
       if (alt.status === "fulfilled") setActiveAlerts(alt.value.data || []);
@@ -91,7 +92,7 @@ export default function WarehouseManagerDashboard({ warehouseId }: WarehouseMana
       {error && <DashboardError message={error} retry={fetchDashboardData} dismiss={() => setError(null)} />}
       <section aria-label="Warehouse metrics" className={styles.metrics}>
         <Metric label="Warehouse stock" value={value(totalUnits)} note="Units in loaded inventory" icon={<Boxes size={13} />} />
-        <Metric label="Low stock" value={value(lowStockItems.length)} note="Items below threshold" tone="warning" icon={<AlertTriangle size={13} />} />
+        <Metric label="Low stock" value={value(lowStockCount)} note="Items below threshold" tone="warning" icon={<AlertTriangle size={13} />} />
         <Metric label="Orders" value={value(orderCount)} note="Touching this warehouse" icon={<ShoppingCart size={13} />} />
         <Metric label="In transit" value={value(inTransitCount)} note="From this warehouse" icon={<Truck size={13} />} />
         <Metric label="Delayed" value={value(delayedCount)} note="Shipments need attention" tone="danger" />

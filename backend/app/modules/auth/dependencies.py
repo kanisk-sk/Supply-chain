@@ -7,13 +7,15 @@ router decides authorization itself — it only declares the permissions it need
 
 from __future__ import annotations
 
+import hmac
+
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, password_token_version
 from app.modules.auth.permissions import Permission, has_permissions
 from app.modules.users.models import User
 from app.modules.users.repositories import UserRepository
@@ -43,6 +45,9 @@ def get_current_user(
 
     user = UserRepository(db).get_by_id(int(subject))
     if user is None or not user.is_active:
+        raise UnauthorizedError("Invalid or expired token")
+    version = payload.get("pwd")
+    if not isinstance(version, str) or not hmac.compare_digest(version, password_token_version(user.password_hash)):
         raise UnauthorizedError("Invalid or expired token")
     return user
 

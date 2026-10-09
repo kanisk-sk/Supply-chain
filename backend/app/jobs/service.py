@@ -19,12 +19,12 @@ daemon, or an optional in-process thread (``SCHEDULER_ENABLED``).
 
 from __future__ import annotations
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.transactions import transaction
 from app.core.database import utcnow
-from app.modules.alerts.models import Alert, AlertType
+from app.common.timestamps import iso_utc
+from app.modules.alerts.models import AlertType
 from app.modules.alerts.repositories import AlertRepository
 from app.modules.alerts.service import AlertService
 from app.modules.shipments.repositories import ShipmentRepository
@@ -36,14 +36,7 @@ def _unresolved_overdue_alert_ids(db: Session) -> set[int]:
     ``run_overdue_check`` snapshots this set before and after reconciliation so
     the report can count freshly created and freshly resolved alerts.
     """
-    return set(
-        db.execute(
-            select(Alert.id).where(
-                Alert.type == AlertType.SHIPMENT_OVERDUE,
-                Alert.is_resolved.is_(False),
-            )
-        ).scalars()
-    )
+    return AlertRepository(db).unresolved_overdue_ids()
 
 
 def run_overdue_check(db: Session) -> dict:
@@ -84,7 +77,7 @@ def run_overdue_check(db: Session) -> dict:
             # Reconcile every unique shipment from one batched status fetch —
             # the same lookup the old candidate path per-row would otherwise
             # repeat — so a shipment shared by both sets is not fetched twice.
-            rows = shipments.get_status_rows(sorted(ids))
+            rows = shipments.get_status_rows(sorted(ids), for_update=True)
             for shipment_id in sorted(ids):
                 checked += 1
                 info = rows.get(shipment_id)
@@ -109,5 +102,5 @@ def run_overdue_check(db: Session) -> dict:
             "checked": checked,
             "created": len(after - before),
             "resolved": len(before - after),
-            "checked_at": now.isoformat(),
+            "checked_at": iso_utc(now),
         }

@@ -8,7 +8,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import Modal from "@/components/common/Modal";
 import { useAuth } from "@/context/AuthContext";
-import { shipmentsApi, warehousesApi } from "@/lib/api";
+import { shipmentsApi, warehousesApi, listAllPages } from "@/lib/api";
 import { Shipment, ShipmentStatusHistory, Warehouse } from "@/types/api";
 import Link from "next/link";
 import {
@@ -49,12 +49,12 @@ export default function ShipmentDetailsPage() {
         shipmentsApi.get(Number(id)),
         shipmentsApi.history(Number(id)),
         canReadWarehouses
-          ? warehousesApi.list({ limit: 100 })
-          : Promise.resolve({ data: [] as Warehouse[] }),
+          ? listAllPages<Warehouse>(page => warehousesApi.list({ page, limit: 100 }))
+          : Promise.resolve([] as Warehouse[]),
       ]);
       setShipment(shipmentData);
       setHistory(historyData);
-      setWarehouses(whData.data || []);
+      setWarehouses(whData);
     } catch (err: any) {
       setFeedback({ type: "error", message: err.message || "Failed to load shipment details" });
     } finally {

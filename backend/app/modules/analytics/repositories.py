@@ -439,7 +439,7 @@ class AnalyticsRepository:
 
     # ---- bottlenecks ----
 
-    def _stage_duration_stmt(self, from_status, to_status) -> Select:
+    def _stage_duration_stmt(self, from_status, to_status, *, start=None, end=None) -> Select:
         """One row per consecutive ``from → to`` transition: elapsed seconds.
 
         Chronology is determined by ``changed_at`` first — history insertion
@@ -449,7 +449,7 @@ class AnalyticsRepository:
         timestamps: an out-of-order backfill may carry ids that do not match
         the real sequence of events.
         """
-        hist = select(
+        history = select(
             ShipmentStatusHistory.shipment_id.label("shipment_id"),
             ShipmentStatusHistory.status.label("status"),
             ShipmentStatusHistory.changed_at.label("changed_at"),
@@ -471,7 +471,12 @@ class AnalyticsRepository:
         ),
             )
             .label("prev_changed_at"),
-        ).subquery()
+        )
+        if start is not None:
+            history = history.where(ShipmentStatusHistory.changed_at >= start)
+        if end is not None:
+            history = history.where(ShipmentStatusHistory.changed_at <= end)
+        hist = history.subquery()
         return select(
             _seconds_timediff(hist.c.prev_changed_at, hist.c.changed_at).label("secs")
         ).where(
@@ -497,7 +502,7 @@ class AnalyticsRepository:
         stmt = self._percentile_stmt(self._stage_duration_stmt(from_status, to_status), percentile)
         return _int_or_none(self.db.execute(stmt).scalar_one())
 
-    def _confirm_to_packed_durations_stmt(self) -> Select:
+    def _confirm_to_packed_durations_stmt(self, *, start=None, end=None) -> Select:
         """Order confirmed (audit_logs) → first PACKED history row, in seconds."""
         confirmed = (
             select(
@@ -508,8 +513,12 @@ class AnalyticsRepository:
                 AuditLog.action == "ORDER_CONFIRMED",
                 AuditLog.entity_type == "order",
             )
-            .subquery()
         )
+        if start is not None:
+            confirmed = confirmed.where(AuditLog.created_at >= start)
+        if end is not None:
+            confirmed = confirmed.where(AuditLog.created_at <= end)
+        confirmed = confirmed.subquery()
         first_packed = (
             select(
                 ShipmentStatusHistory.shipment_id.label("shipment_id"),
@@ -525,9 +534,13 @@ class AnalyticsRepository:
                 .label("rn"),
             )
             .where(ShipmentStatusHistory.status == ShipmentStatus.PACKED)
-            .subquery()
         )
-        return (
+        if start is not None:
+            first_packed = first_packed.where(ShipmentStatusHistory.changed_at >= start)
+        if end is not None:
+            first_packed = first_packed.where(ShipmentStatusHistory.changed_at <= end)
+        first_packed = first_packed.subquery()
+        durations = (
             select(
                 _seconds_timediff(
                     confirmed.c.confirmed_at, first_packed.c.packed_at
@@ -538,6 +551,12 @@ class AnalyticsRepository:
             .join(first_packed, first_packed.c.shipment_id == Shipment.id)
             .where(first_packed.c.rn == 1)
         )
+
+        if start is not None:
+            durations = durations.where(first_packed.c.packed_at >= start)
+        if end is not None:
+            durations = durations.where(first_packed.c.packed_at <= end)
+        return durations
 
     def confirm_to_packed_stats(self) -> tuple[int, Decimal | None, Decimal | None, Decimal | None]:
         """(count, avg_seconds, min_seconds, max_seconds) for confirm → packed."""
@@ -572,3 +591,26 @@ class AnalyticsRepository:
         return select(func.max(ranked.c.secs)).select_from(ranked).where(
             ranked.c.rank <= percentile
         )
+
+    def bottleneck_reports(self, *, start, end) -> list[tuple[str, tuple]]:
+        return [
+            ("order_confirmed_to_packed", self._duration_report(
+                self._confirm_to_packed_durations_stmt(start=start, end=end))),
+            ("packed_to_in_transit", self._duration_report(
+                self._stage_duration_stmt(*STAGE_PACKED_TO_TRANSIT, start=start, end=end))),
+            ("in_transit_to_delivered", self._duration_report(
+                self._stage_duration_stmt(*STAGE_TRANSIT_TO_DELIVERED, start=start, end=end))),
+        ]
+
+    def _duration_report(self, duration_stmt) -> tuple:
+        durations = duration_stmt.subquery()
+        ranked = select(
+            durations.c.secs,
+            func.percent_rank().over(order_by=durations.c.secs).label("rank"),
+        ).subquery()
+        return tuple(self.db.execute(select(
+            func.count(ranked.c.secs), func.avg(ranked.c.secs),
+            func.min(ranked.c.secs), func.max(ranked.c.secs),
+            func.max(case((ranked.c.rank <= 0.5, ranked.c.secs), else_=None)),
+            func.max(case((ranked.c.rank <= 0.9, ranked.c.secs), else_=None)),
+        )).one())

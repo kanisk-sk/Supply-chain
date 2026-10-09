@@ -62,5 +62,5 @@ def get_alert(
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        AlertService(db).get(alert_id), message="Alert retrieved"
+        AlertService(db).get(alert_id, actor=_user), message="Alert retrieved"
     )

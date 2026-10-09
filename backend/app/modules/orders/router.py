@@ -11,6 +11,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from app.common.timestamps import normalize_utc
 from app.common.pagination import resolve_pagination
 from app.common.responses import build_paged_response, build_success_response
 from app.core.database import get_db
@@ -42,8 +43,8 @@ def list_orders(
         limit=limit,
         status=status,
         created_by=created_by,
-        start=start,
-        end=end,
+        start=normalize_utc(start),
+        end=normalize_utc(end),
         include_shipments=include_shipments,
         actor=actor,
     )
@@ -61,11 +62,11 @@ def list_orders(
 def get_order(
     order_id: int,
     include_shipments: bool = Query(default=False),
-    _user: User = Depends(require_permissions(Permission.ORDERS_READ)),
+    actor: User = Depends(require_permissions(Permission.ORDERS_READ)),
     db=Depends(get_db),
 ) -> dict:
     return build_success_response(
-        OrderService(db).get(order_id, include_shipments=include_shipments),
+        OrderService(db).get(order_id, include_shipments=include_shipments, actor=actor),
         message="Order retrieved",
     )
 

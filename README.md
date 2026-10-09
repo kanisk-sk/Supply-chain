@@ -146,3 +146,7 @@ Database-backed tests use the separate `TEST_DATABASE_URL` and skip when their d
 - [Entity relationships](backend/docs/ERD.md)
 
 Local environment files, dependencies, build output and development logs are excluded from Git.
+
+## Production release
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for environment requirements, migrations, first administrator provisioning, scheduler operation, readiness probes and release verification. CI runs against a fresh disposable MySQL schema and refuses to silently skip database checks.
