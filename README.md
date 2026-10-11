@@ -37,6 +37,17 @@ The live installation uses administrator-provisioned accounts. The development c
 
 **Free hosting behavior:** Render may sleep when idle, so the first API request can time out while it wakes; retry shortly afterward. GitHub scheduled runs can be delayed or skipped, so the five-minute schedule is not an exact alert-delivery guarantee. See [DEPLOYMENT.md](DEPLOYMENT.md) for release and recovery procedures.
 
+## Sample order and shipment tracking
+
+Two fictional sample orders are available in the live app. Open their public tracking links without signing in, or sign in with an authorized account to view the linked records in **Orders** and **Shipments**.
+
+| Order | Order status at setup | Shipment | Shipment status at setup | Public tracking |
+| --- | --- | --- | --- | --- |
+| `ORD-00000002` | Confirmed | `SHP-00000002` | In transit | [Track shipment](https://supply-chain-kanisk-sk.vercel.app/tracking/TRK-04792734606075F81B895D6B) |
+| `ORD-00000003` | Fulfilled | `SHP-00000003` | Delivered | [Track shipment](https://supply-chain-kanisk-sk.vercel.app/tracking/TRK-517814E9B9390A7FAA6FADB7) |
+
+The supporting supplier, product and warehouse are labeled **Sample**. These are demonstration records, not real customer shipments. Statuses reflect setup on 11 October 2026 and can change through the normal application workflow. The records live in the hosted database; cloning this repository does not import them.
+
 ## Stack
 
 | Frontend | Backend |
