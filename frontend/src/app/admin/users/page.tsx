@@ -47,14 +47,19 @@ export default function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadUsers]);
 
-  const openEditor = async (user: User | null) => {
+  const openEditor = useCallback(async (user: User | null) => {
     setEditor({ user }); setFormError(null);
     setForm({ name: user?.name || "", email: user?.email || "", password: "", role: user?.role || "ANALYST", warehouse_id: user?.warehouse_id ? String(user.warehouse_id) : "", is_active: user?.is_active ?? true });
     setChoicesLoading(true);
     try { setWarehouses(await listAllPages<Warehouse>(page => warehousesApi.list({ page, limit: 100, is_active: true }))); }
     catch { setFormError("Could not load warehouse assignments. Close and reopen the form to retry."); }
     finally { setChoicesLoading(false); }
-  };
+  }, []);
+  useEffect(() => {
+    if (!canWrite || new URLSearchParams(window.location.search).get("create") !== "1") return;
+    window.history.replaceState(window.history.state, "", "/admin/users");
+    void openEditor(null);
+  }, [canWrite, openEditor]);
   const saveUser = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editor || !canWrite) return;

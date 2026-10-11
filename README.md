@@ -6,17 +6,18 @@ A full-stack platform for managing suppliers, products, warehouses, inventory, o
 
 - **Landing page:** persistent logistics background, progressive scroll blur, independent full-size hero, floating navigation and reduced-motion support.
 - **Authentication:** JWT sign-in and role-based access for administrators, warehouse managers, supply-chain managers and analysts.
+- **User management:** an “Add new user” option in the login box takes administrators directly to the user-creation dialog after sign-in. Administrators can create and edit accounts, assign roles and select a warehouse for warehouse managers.
 - **Operations:** supplier/product/warehouse catalogs, inventory adjustments and transfers, order workflows, shipment status history and alerts.
 - **Dashboards:** role-specific operational views; the analytics dashboard includes a truck-and-mountain header, live IST clock and refresh control.
 - **Sidebar:** navigation search, collapsible groups, active-page highlighting, complete hide/show controls and mobile navigation.
 - **Profile settings:** responsive personal-information and account-overview panels; persistent name and photo updates, discard controls, password visibility and password changes verified against the current password.
-- **Public tracking:** no login required; enter a tracking number such as `TRK-1A2B3C4D` to open its tracking page. The tracker shares the login page's logistics theme, with steady form controls.
+- **Public tracking:** no login required; enter a tracking number such as `TRK-1A2B3C4D5E6F7890ABCDEF12` to open its tracking page. Existing eight-character references remain supported. The tracker shares the login page's logistics theme, with steady form controls.
 
 ## Stack
 
 | Frontend | Backend |
 | --- | --- |
-| Next.js 14, React 18, TypeScript | Python, FastAPI, Pydantic |
+| Next.js 16.4, React 19, TypeScript | Python 3.14, FastAPI, Pydantic |
 | Tailwind CSS, Lucide, animejs | SQLAlchemy, MySQL, Alembic |
 | Vitest | pytest, JWT, bcrypt |
 
@@ -38,7 +39,7 @@ frontend/
 
 ## Local setup
 
-Prerequisites: Python compatible with the pinned backend dependencies (currently developed with Python 3.14), Node.js 20+ with npm, and MySQL 8+.
+Prerequisites: Python 3.14, Node.js 24 with npm 11, and MySQL with InnoDB, window functions and named locks. CI uses MySQL 8.4. Runtime versions are recorded in `.nvmrc`, `frontend/.nvmrc` and `backend/.python-version`.
 
 ### Backend
 
@@ -66,7 +67,7 @@ python -m app.seed
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The seed command is optional and creates development accounts and sample operational data. Apply migrations on existing installations too: the profile-photo feature requires migration `a60206f1c001`.
+The seed command is optional and creates development accounts and sample operational data. Run `alembic upgrade head` on existing installations too, so profile photos, warehouse assignments, public tracking and shared rate-limit tables are available.
 
 ### Frontend
 
@@ -84,6 +85,7 @@ Set `NEXT_PUBLIC_API_URL` to your backend base URL; the local default is `http:/
 - App: [localhost:3000](http://localhost:3000)
 - API docs: [localhost:8000/docs](http://localhost:8000/docs)
 - API health: [localhost:8000/health](http://localhost:8000/health)
+- API readiness: [localhost:8000/ready](http://localhost:8000/ready), which checks the database and returns 503 when it is unavailable.
 
 ### Development accounts
 
@@ -96,23 +98,41 @@ These credentials are created by `python -m app.seed` and are intended for local
 | Supply-chain manager | `supply@example.com` | `Supply123!` |
 | Analyst | `analyst@example.com` | `Analyst123!` |
 
-The login page includes buttons that fill these credentials. Warehouse managers need an assigned warehouse; the seed script does not assign one, so a new warehouse account initially displays “No warehouse assigned.”
+The login page includes buttons that fill these credentials in development only. Warehouse managers need an assigned warehouse; the seed script does not assign one, so use an administrator account to assign an active warehouse in User management.
+
+### Add a new user
+
+1. Open `/login` and click **Add new user** below the sign-in button.
+2. Enter an existing administrator account's email and password, then click **Continue as administrator**. Other roles cannot use this shortcut to create users.
+3. The **Create user** dialog opens in User management. Enter the new user's name, email and initial password, choose their role and account status, and select an active warehouse if the role is **WAREHOUSE_MANAGER**.
+4. Click **Save access**. The new account can then sign in normally.
+
+**Back to sign in** returns to the regular login form. This is an administrator workflow; public self-registration is not available. Administrators can also open `/admin/users` and click **Create user** while already signed in.
+
+For a fresh installation without seeded accounts, provision the first administrator from `backend/` with the environment configured and migrations applied:
+
+```bash
+python -m app.bootstrap_admin --email YOUR-EMAIL --name "YOUR-NAME"
+```
+
+The command prompts for a password without displaying it and refuses to create another first administrator if an active administrator already exists.
 
 ## Main routes
 
 | Route | Purpose |
 | --- | --- |
 | `/` or `/landing` | Landing page |
-| `/login` | Sign in |
+| `/login` | Sign in or start the administrator-only Add new user workflow |
 | `/dashboard` | Role-specific dashboard |
 | `/profile` | Personal information, account overview and password settings |
 | `/track` | Public tracking-number entry |
 | `/tracking/[trackingNumber]` | Public shipment timeline |
 | `/inventory`, `/orders`, `/shipments` | Operational workspaces |
 | `/products`, `/suppliers`, `/warehouses` | Catalog workspaces |
-| `/alerts`, `/analytics`, `/admin/users` | Role-restricted tools |
+| `/alerts`, `/analytics` | Role-restricted alerts and reports |
+| `/admin/users` | Administrator-only user creation and editing |
 
-The landing navbar's “Sign up” label currently links to `/login`; registration is not implemented. Profile email and role fields are read-only. Phone/location editing, device history and account-activity lists are not implemented.
+The landing navbar's “Sign up” label links to `/login`; accounts are created by administrators rather than public registration. Profile email and role fields are read-only. Phone/location editing, device history and account-activity lists are not implemented.
 
 ## Checks and builds
 
@@ -122,6 +142,7 @@ From `frontend/`:
 npm run type-check
 npm run lint
 npm run test
+# Set NEXT_PUBLIC_API_URL to your HTTPS API URL ending in /api/v1 before a production build.
 npm run build
 npm run start
 ```
@@ -132,10 +153,10 @@ From `backend/`, with the virtual environment active:
 
 ```bash
 pytest tests/unit -q
-pytest -v
+pytest tests --require-db -q
 ```
 
-Database-backed tests use the separate `TEST_DATABASE_URL` and skip when their database prerequisites are unavailable. Never point that setting at the development database.
+Database-backed tests require a fresh, empty disposable schema named with `test`, configured through `TEST_DATABASE_URL`, and distinct from `DATABASE_URL`. Tests apply real Alembic migrations and refuse to reset a nonempty schema. `--require-db` fails when database prerequisites are unavailable; omitting it permits database tests to skip. Never point `TEST_DATABASE_URL` at your development or production database.
 
 ## Documentation
 

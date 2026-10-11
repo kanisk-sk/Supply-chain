@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
 import { Tilt } from "@/components/core/tilt";
+import { loginDestination, LoginIntent } from "@/lib/login-intent";
 import { Lock, Mail, ArrowLeft, ArrowRight, UserRound, Warehouse, Truck, ChartNoAxesColumnIncreasing, Plane } from "lucide-react";
 
 const DEV_CREDENTIALS = process.env.NODE_ENV === "development" ? [
@@ -21,14 +22,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const [intent, setIntent] = useState<LoginIntent>("sign-in");
+  const { login, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
+    if (isAuthenticated && user) {
+      router.push(loginDestination(user.role, user.role === "ADMIN" ? intent : "sign-in"));
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, intent, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +44,7 @@ export default function LoginPage() {
 
     try {
       const { access_token } = await authApi.login(email, password);
-      await login(access_token);
+      await login(access_token, intent);
     } catch (err: any) {
       setError(err.message || "Failed to log in. Please check your credentials.");
     } finally {
@@ -101,10 +103,10 @@ export default function LoginPage() {
               </span>
             </div>
             <h1 className="scm-display text-3xl sm:text-4xl font-bold uppercase tracking-tight leading-none text-slate-900">
-              Sign in<span className="text-[#ef302d]" aria-hidden="true">.</span>
+              {intent === "create-user" ? "Add new user" : "Sign in"}<span className="text-[#ef302d]" aria-hidden="true">.</span>
             </h1>
             <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
-              Access your tracking &amp; analytics workspace.
+              {intent === "create-user" ? "Sign in as an administrator to create a user account." : "Access your tracking & analytics workspace."}
             </p>
           </div>
 
@@ -175,11 +177,23 @@ export default function LoginPage() {
                 disabled={loading}
                 className="scm-button flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 transition-colors"
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "Signing in..." : intent === "create-user" ? "Continue as administrator" : "Sign in"}
                 {!loading && <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           </form>
+
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => { setIntent(intent === "sign-in" ? "create-user" : "sign-in"); setError(null); }}
+              className="flex w-full items-center justify-center gap-2 rounded border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-900 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:opacity-50"
+            >
+              <UserRound className="h-4 w-4" aria-hidden="true" />
+              {intent === "sign-in" ? "Add new user" : "Back to sign in"}
+            </button>
+          </div>
 
           {/* Development-only credentials are excluded from production builds. */}
           {process.env.NODE_ENV === "development" && <div className="mt-6 border-t border-slate-100 pt-4">
@@ -216,4 +230,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

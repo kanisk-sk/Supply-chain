@@ -5,6 +5,7 @@ import { User, UserRole, Permission } from "@/types/api";
 import { authApi, getStoredToken, setStoredToken, removeStoredToken, ApiError, SESSION_EXPIRED_EVENT } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { hasPermission as checkPermission, hasRole as checkRole, ROLE_PERMISSIONS } from "@/config/navigation";
+import { loginDestination, LoginIntent } from "@/lib/login-intent";
 
 interface AuthContextType {
   user: User | null;
@@ -13,7 +14,7 @@ interface AuthContextType {
   authError: string | null;
   retryAuth: () => void;
   isAuthenticated: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string, intent?: LoginIntent) => Promise<void>;
   logout: () => void;
   hasPermission: (...permissions: Permission[]) => boolean;
   hasRole: (...roles: UserRole[]) => boolean;
@@ -88,14 +89,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession); window.removeEventListener("storage", syncSession); };
   }, []);
 
-  const login = async (newToken: string) => {
+  const login = async (newToken: string, intent: LoginIntent = "sign-in") => {
     setStoredToken(newToken);
     setToken(newToken);
     try {
       const currentUser = await authApi.me();
       if (getStoredToken() !== newToken) return;
+      let destination: string;
+      try { destination = loginDestination(currentUser.role, intent); }
+      catch (error) {
+        removeStoredToken(); setToken(null); setUser(null);
+        throw error;
+      }
       setAuthError(null); setUser(currentUser); setIsLoading(false);
-      router.push("/dashboard");
+      router.push(destination);
     } catch (err) {
       if (getStoredToken() !== newToken && getStoredToken() !== null) return;
       if (err instanceof ApiError && err.status === 401) {
@@ -154,4 +161,3 @@ export function useAuth() {
   }
   return context;
 }
-
