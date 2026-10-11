@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import StatusBadge from "@/components/common/StatusBadge";
 import FeedbackAlert from "@/components/common/FeedbackAlert";
+import Modal from "@/components/common/Modal";
 import { trackingApi } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { PublicTrackingInfo } from "@/types/api";
@@ -34,6 +35,7 @@ export default function TrackingResultPage() {
   const [info, setInfo] = useState<PublicTrackingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showNotFoundPopup, setShowNotFoundPopup] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [lookupInput, setLookupInput] = useState("");
@@ -48,6 +50,7 @@ export default function TrackingResultPage() {
     const fetchTracking = async () => {
       setLoading(true);
       setNotFound(false);
+      setShowNotFoundPopup(false);
       setError(null);
       setInfo(null);
       try {
@@ -57,6 +60,7 @@ export default function TrackingResultPage() {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 404) {
           setNotFound(true);
+          setShowNotFoundPopup(true);
         } else {
           setError(err?.message || "Failed to load tracking information.");
         }
@@ -82,6 +86,27 @@ export default function TrackingResultPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
+      <Modal
+        isOpen={showNotFoundPopup}
+        onClose={() => setShowNotFoundPopup(false)}
+        title="Tracking ID not found"
+        maxWidth="sm"
+      >
+        <div className="flex items-start gap-3" role="alert">
+          <SearchX className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden="true" />
+          <p className="text-sm text-slate-700">
+            No shipment exists with tracking ID <span className="break-all font-mono font-semibold">{trackingNumber}</span>.
+            {" "}Check the ID and try again.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowNotFoundPopup(false)}
+          className="mt-5 w-full rounded border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          Try another ID
+        </button>
+      </Modal>
       <header className="flex h-16 items-center border-b border-slate-200 bg-white px-6">
         <Link href="/track" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
