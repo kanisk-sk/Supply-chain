@@ -2,16 +2,40 @@
 
 A full-stack platform for managing suppliers, products, warehouses, inventory, orders and shipments, with role-based dashboards, live analytics, alerts and public package tracking.
 
-## Features
+[![Release checks](https://github.com/kanisk-sk/Supply-chain/actions/workflows/release-checks.yml/badge.svg?branch=main)](https://github.com/kanisk-sk/Supply-chain/actions/workflows/release-checks.yml)
+[![Live demo](https://img.shields.io/badge/Live_demo-Vercel-211f1b)](https://supply-chain-kanisk-sk.vercel.app)
 
-- **Landing page:** persistent logistics background, progressive scroll blur, independent full-size hero, floating navigation and reduced-motion support.
-- **Authentication:** JWT sign-in and role-based access for administrators, warehouse managers, supply-chain managers and analysts.
-- **User management:** an “Add new user” option in the login box takes administrators directly to the user-creation dialog after sign-in. Administrators can create and edit accounts, assign roles and select a warehouse for warehouse managers.
-- **Operations:** supplier/product/warehouse catalogs, inventory adjustments and transfers, order workflows, shipment status history and alerts.
-- **Dashboards:** role-specific operational views; the analytics dashboard includes a truck-and-mountain header, live IST clock and refresh control.
-- **Sidebar:** navigation search, collapsible groups, active-page highlighting, complete hide/show controls and mobile navigation.
-- **Profile settings:** responsive personal-information and account-overview panels; persistent name and photo updates, discard controls, password visibility and password changes verified against the current password.
-- **Public tracking:** no login required; enter a tracking number such as `TRK-1A2B3C4D5E6F7890ABCDEF12` to open its tracking page. Existing eight-character references remain supported. The tracker shares the login page's logistics theme, with steady form controls.
+**[Open the live app](https://supply-chain-kanisk-sk.vercel.app) · [Track a package](https://supply-chain-kanisk-sk.vercel.app/track) · [Deployment guide](DEPLOYMENT.md) · [API contract](backend/docs/API_CONTRACT.md)**
+
+![Supply chain logistics](frontend/public/dashboard-truck-hero.jpg)
+
+## What it does
+
+A single workspace follows stock from warehouse inventory through order confirmation, shipment dispatch and delivery. Operational records feed the dashboards and analytics; recipients can check a shipment through its public tracking reference without signing in.
+
+| Workspace | Capabilities |
+| --- | --- |
+| Inventory | Stock by product and warehouse, adjustments, transfers and movement history |
+| Orders & shipments | Order confirmation and fulfillment, stock deduction at dispatch, shipment lifecycle and status history |
+| Catalog | Suppliers, products, warehouses and reorder thresholds |
+| Alerts & analytics | Low-stock and overdue alerts, delivery performance, supplier activity and lifecycle bottlenecks |
+| Access management | JWT sign-in, four roles, warehouse-scoped access and administrator-created accounts |
+| Public tracking | Shipment timeline, delivery estimates and a dismissible error popup for unknown tracking IDs |
+
+The desktop workspace uses compact tables, searchable navigation and role-specific dashboards. Profile settings support name, photo and password updates. Public self-registration is disabled: the login page’s **Add new user** shortcut takes authorized administrators to user management.
+
+## Live deployment
+
+| Service | Hosting | Purpose |
+| --- | --- | --- |
+| [Web app](https://supply-chain-kanisk-sk.vercel.app) | Vercel Hobby | Next.js frontend |
+| [API readiness](https://supply-chain-api-5f4r.onrender.com/ready) | Render Free | FastAPI API and database connectivity check |
+| Database | Aiven free MySQL | Persistent application data with verified TLS |
+| [Overdue alert job](https://github.com/kanisk-sk/Supply-chain/actions/workflows/overdue-alerts.yml) | GitHub Actions | Scheduled reconciliation with database-backed singleton ownership |
+
+The live installation uses administrator-provisioned accounts. The development credentials below do **not** grant access to the hosted app.
+
+**Free hosting behavior:** Render may sleep when idle, so the first API request can time out while it wakes; retry shortly afterward. GitHub scheduled runs can be delayed or skipped, so the five-minute schedule is not an exact alert-delivery guarantee. See [DEPLOYMENT.md](DEPLOYMENT.md) for release and recovery procedures.
 
 ## Stack
 
@@ -160,6 +184,7 @@ Database-backed tests require a fresh, empty disposable schema named with `test`
 
 ## Documentation
 
+- [Deployment and operations](DEPLOYMENT.md)
 - [Backend setup and API overview](backend/README.md)
 - [Architecture](backend/docs/ARCHITECTURE.md)
 - [Database](backend/docs/DATABASE.md)

@@ -4,6 +4,19 @@ Use Node 24 / npm 11 and Python 3.14. MySQL must support InnoDB, window function
 
 ## Production configuration
 
+### Current free deployment — 11 October 2026
+
+- Frontend: [supply-chain-kanisk-sk.vercel.app](https://supply-chain-kanisk-sk.vercel.app), Vercel Hobby, root `frontend`, Node 24, install `npm ci`, build `npm run build`.
+- API: [supply-chain-api-5f4r.onrender.com](https://supply-chain-api-5f4r.onrender.com), Render Free in Singapore, native Python 3.14.3, root `backend`, build `pip install -r requirements.txt`, start `uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --no-proxy-headers`. Health check: `/ready`. Backend automatic deployment is disabled; deploy approved backend releases manually.
+- Database: existing Aiven `supply-chain-production`, MySQL 8.4.11, Free-1-1gb. Runtime and migration identities are separate and require TLS. Render reads the provider CA from `/etc/secrets/mysql-ca.pem`.
+- Frontend production `NEXT_PUBLIC_API_URL` is `https://supply-chain-api-5f4r.onrender.com/api/v1`. API CORS permits exactly `https://supply-chain-kanisk-sk.vercel.app`.
+
+The free scheduler uses [overdue-alerts.yml](.github/workflows/overdue-alerts.yml) rather than a paid persistent worker. Keep API `SCHEDULER_ENABLED=false`. Configure GitHub secrets `PRODUCTION_DATABASE_URL` with the restricted runtime identity and `PRODUCTION_MYSQL_CA_PEM` with the provider CA. Set repository variables `PRODUCTION_FRONTEND_ORIGIN` to the frontend origin above and `FREE_SCHEDULER_ENABLED=true` only after database preparation. The workflow runs `python -m app.jobs.scheduler --once`, uses the same database ownership lock, and never receives the API JWT signing secret. It is limited to public repositories to keep standard runners free.
+
+Render sleeps when idle and cold starts can exceed the frontend request timeout. GitHub's five-minute schedule is best effort, can be delayed/skipped, and can stop after repository inactivity. This setup does not provide always-on availability or guaranteed alert latency.
+
+The approved initial migration reached `b73094c2e801`; `alembic check` passed after a backup and restore rehearsal. Live readiness, administrator sign-in, inventory/order/shipment writes, alerts, analytics, public tracking, CORS and tracking rate limiting were observed passing. The first [production alert workflow run](https://github.com/kanisk-sk/Supply-chain/actions/runs/38124710913) succeeded. Verification catalog entries were archived, stock returned to zero, and completed order/shipment audit history was retained. Live testing did not provision an additional non-administrator account, so role-specific denial checks remain a separate live verification step.
+
 Set backend `ENVIRONMENT=production`, `DATABASE_URL` to a remote MySQL database using a dedicated non-root account and a URL-encoded password, and `JWT_SECRET` to at least 32 random bytes (generate with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`). Set `CORS_ORIGINS` to the exact HTTPS frontend origin, without a trailing slash. Keep `DB_REQUIRE_TLS=true`; provide `DB_SSL_CA` if the provider uses a private CA. Startup refuses development credentials/origins and insecure database settings. Keep credentials in the hosting provider's secret store.
 
 Set frontend `NEXT_PUBLIC_API_URL=https://YOUR-API-HOST/api/v1` **before** `npm run build`. It is embedded at build time. Production builds refuse missing, local or HTTP URLs. Build with `npm ci && npm run lint && npm run type-check && npm test && npm run build`, start with `npm start` on the provider's assigned port. Demo login information is hidden in production. Serve both services over HTTPS.
